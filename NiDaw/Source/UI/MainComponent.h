@@ -51,6 +51,10 @@ public:
         space bar drives the transport even when the focus is in another window - see
         keyPressed(key, origin) below. */
     bool keyPressed (const juce::KeyPress& key, juce::Component* origin) override;
+    /** A key went down or up in any window HM owns: the virtual keyboard polls the
+        physical keys, so it is poked here to start / stop its note on the event
+        rather than on the next 30 Hz tick. Never consumes the key. */
+    bool keyStateChanged (bool isKeyDown, juce::Component* origin) override;
     void parentHierarchyChanged() override;
 
     void newProject();

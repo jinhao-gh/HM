@@ -126,6 +126,16 @@ public:
         the window keeps working too). */
     void focusTyping() { grabKeyboardFocus(); }
 
+    /** A computer key changed while another HM window had the focus: poll the
+        physical keys right now rather than on the next 30 Hz tick, so a note starts
+        with the key instead of up to one frame later. */
+    void pollTypingNow();
+
+    /** True when the current layout maps this computer key to a note. While the
+        keyboard is on screen those keys belong to the instrument, so the main
+        window must not also fire a single-key shortcut for them. */
+    bool isTypingKey (int keyCode) const;
+
     /** Lets go of every note *this window* started.
 
         The owner hears about each one (the state notifies its listener), so the
@@ -201,9 +211,14 @@ public:
     juce::String getTypingKeysTextForTest() const { return typingKeysText(); }
     /** Self test: the typing poll ticks while the window is on screen. */
     bool isTypingPollRunningForTest() const { return isTimerRunning(); }
-    /** Self test: pretend the window lost the keyboard focus (the rule that lets go
-        of everything when the user clicks another window). */
+    /** Self test: pretend HM went to the background (or came back). Clicking another
+        HM window is *not* "leaving", so this is the only focus rule that ends
+        typing. */
     void setWindowFocusedForTest (bool isFocused);
+    /** Self test: HM's foreground state, so the rule is testable offscreen. */
+    void setApplicationForegroundForTest (bool isForeground);
+    /** Self test: what the typing rule answers for a given focused component. */
+    bool typingIsLiveForTest (juce::Component* focused) const;
     bool isCollapsedForTest() const noexcept { return settings.collapsed; }
     void toggleCollapseForTest();
     bool isPinnedForTest() const noexcept { return settings.alwaysOnTop; }
@@ -232,11 +247,17 @@ private:
     void updatePollingTimer();
     /** True when the system (or the self test) says that computer key is down. */
     bool keyIsDown (int keyCode) const;
-    /** True when the focus belongs to this window (rule: a window that is not being
-        looked at cannot be typed into). */
+    /** True when the focus belongs to this window. */
     bool focusIsInsideWindow() const;
-    /** True when the focused thing is a text box: typing goes to it, not to notes. */
-    bool focusIsATextBox() const;
+    /** Whether the computer keys may play right now: the window is on screen, no
+        text box has the keys, and HM is the application being used. The focus may
+        sit in any HM window - that is what lets a patch be auditioned while a knob
+        is turned. */
+    bool typingIsLive() const;
+    /** Whether HM is the foreground application (self test override first). */
+    bool applicationIsForeground() const;
+    /** True when this component or one of its parents is a text box. */
+    static bool isInsideTextBox (juce::Component* component);
     /** Polls every mapped key, plays the ones that went down and lets go of the ones
         that came up. */
     void updateTyping();
@@ -287,8 +308,11 @@ private:
     std::set<int> typingDown;
     /** Self test: keys the fake system says are down. */
     std::set<int> forcedKeyDown;
-    /** Self test: pretend the window is / is not focused. */
+    /** Self test: pretend HM is / is not the foreground application. */
     bool forceWindowUnfocused = false;
+    /** -1 = ask the system, 0 = the self test says HM is in the background,
+        1 = the self test says it is in front. */
+    int forceAppForeground = -1;
     /** Which source the next `keyboardState` call belongs to (the listener forwards
         it to the owner): the on-screen piano, or one computer key. */
     juce::int64 currentTrigger = keyboard::kMouseTrigger;

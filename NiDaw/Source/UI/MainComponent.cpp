@@ -413,6 +413,20 @@ bool MainComponent::keyPressed (const juce::KeyPress& key, juce::Component* orig
     return true;
 }
 
+bool MainComponent::keyStateChanged (bool isKeyDown, juce::Component* origin)
+{
+    juce::ignoreUnused (isKeyDown, origin);
+
+    // The computer keys are read as a *poll* (see VirtualKeyboardPanel), which is
+    // what lets the keyboard keep playing while another window holds the focus.
+    // This forward starts the note with the key event instead of up to 33 ms later.
+    // The key itself is never swallowed, so the focused control keeps working.
+    if (virtualKeyboardWindow != nullptr && virtualKeyboardWindow->isVisible())
+        virtualKeyboardWindow->getPanel().pollTypingNow();
+
+    return false;
+}
+
 bool MainComponent::focusIsInsidePluginInterface (juce::Component* focused) const
 {
     if (pluginWindow == nullptr || ! pluginWindow->isVisible())
@@ -3408,6 +3422,17 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
     }
 
     if (mods.isAnyModifierKeyDown())
+        return false;
+
+    // With the virtual keyboard on screen, a key the current layout plays is the
+    // instrument: it must not also fire a single-key shortcut ("n" seals a reference
+    // line; Backspace is a bass note in the accordion layout). The digits below
+    // already follow the same rule. Real key events arrive with an upper-case letter
+    // code; the lower-case form is accepted too, like the "n" shortcut below.
+    const auto typingCode = (code >= 'a' && code <= 'z') ? code - ('a' - 'A') : code;
+
+    if (isVirtualKeyboardVisible() && virtualKeyboardWindow != nullptr
+        && virtualKeyboardWindow->getPanel().isTypingKey (typingCode))
         return false;
 
     if (code == juce::KeyPress::F3Key)

@@ -655,8 +655,11 @@ void VirtualKeyboardPanel::runTypingWatchdogForTest()
     //    window went behind another one, a control took the keyboard...).
     updateTyping();
 
-    // ② A window nobody is looking at cannot be typed into: let go of everything.
-    if (! typingDown.empty() && (! focusIsInsideWindow() || focusIsATextBox()))
+    // ② Leaving the application ends it: a window nobody is looking at cannot be
+    //    typed into. Having the focus in *another* HM window is not leaving - the
+    //    keys keep playing there, so a patch can be auditioned with a knob under
+    //    the mouse.
+    if (! typingDown.empty() && ! typingIsLive())
         releaseTypingKeys();
 }
 
@@ -692,6 +695,15 @@ std::vector<VirtualKeyboardPanel::TypingKey> VirtualKeyboardPanel::typingKeys() 
     return keys;
 }
 
+bool VirtualKeyboardPanel::isTypingKey (int keyCode) const
+{
+    for (const auto& key : typingKeys())
+        if (key.keyCode == keyCode)
+            return true;
+
+    return false;
+}
+
 bool VirtualKeyboardPanel::keyIsDown (int keyCode) const
 {
     if (forcedKeyDown.count (keyCode) > 0)
@@ -700,37 +712,65 @@ bool VirtualKeyboardPanel::keyIsDown (int keyCode) const
     return juce::KeyPress::isKeyCurrentlyDown (keyCode);
 }
 
-bool VirtualKeyboardPanel::focusIsInsideWindow() const
+bool VirtualKeyboardPanel::typingIsLive() const
 {
+    return typingIsLiveForTest (juce::Component::getCurrentlyFocusedComponent());
+}
+
+bool VirtualKeyboardPanel::typingIsLiveForTest (juce::Component* focused) const
+{
+    // A window that is not on screen cannot be played from the computer keys.
+    if (! isShowing())
+        return false;
+
+    // Self test: the user switched to another application.
     if (forceWindowUnfocused)
         return false;
 
-    const auto* focused = juce::Component::getCurrentlyFocusedComponent();
+    // A text box keeps the keys, wherever it lives: typing a velocity or a name must
+    // not play notes.
+    if (isInsideTextBox (focused))
+        return false;
 
-    // Nothing at all has the focus (a window that was never clicked): that is not
-    // "somebody else has it", so nothing is dropped. Only a focus that really sits
-    // *outside* this window means the user has gone elsewhere.
-    if (focused == nullptr)
+    // Nothing at all has the focus (a window that was never clicked, the offscreen
+    // self test), this window has it, or the focus is inside it: play.
+    if (focused == nullptr || focused == this || isParentOf (focused))
         return true;
 
-    return focused == this || isParentOf (focused);
+    // The focus sits in another window of this application - the synth editor, the
+    // mixer, an effects window. Keep playing, so a sound can be auditioned while a
+    // knob is turned; the moment HM itself goes to the background it stops.
+    return applicationIsForeground();
 }
 
-bool VirtualKeyboardPanel::focusIsATextBox() const
+bool VirtualKeyboardPanel::applicationIsForeground() const
 {
-    for (auto* component = juce::Component::getCurrentlyFocusedComponent();
-         component != nullptr; component = component->getParentComponent())
+    if (forceAppForeground >= 0)
+        return forceAppForeground != 0;
+
+    return juce::Process::isForegroundProcess();
+}
+
+bool VirtualKeyboardPanel::isInsideTextBox (juce::Component* component)
+{
+    for (; component != nullptr; component = component->getParentComponent())
         if (dynamic_cast<juce::TextEditor*> (component) != nullptr)
             return true;
 
     return false;
 }
 
+void VirtualKeyboardPanel::pollTypingNow()
+{
+    pollTyping();
+}
+
 void VirtualKeyboardPanel::updateTyping()
 {
-    // A text box keeps the keys: typing a number into the velocity box must not play
-    // notes (the same rule the space bar follows).
-    if (focusIsATextBox())
+    // No notes while HM is in the background, while the window is off screen, or
+    // while a text box has the keys: typing a number into the velocity box must not
+    // play notes (the same rule the space bar follows).
+    if (! typingIsLive())
     {
         releaseTypingKeys();
         return;
@@ -796,6 +836,11 @@ void VirtualKeyboardPanel::setKeyDownForTest (int keyChar, bool isDown)
 void VirtualKeyboardPanel::setWindowFocusedForTest (bool isFocused)
 {
     forceWindowUnfocused = ! isFocused;
+}
+
+void VirtualKeyboardPanel::setApplicationForegroundForTest (bool isForeground)
+{
+    forceAppForeground = isForeground ? 1 : 0;
 }
 
 void VirtualKeyboardPanel::simulateMissedKeyUpForTest (int keyChar)

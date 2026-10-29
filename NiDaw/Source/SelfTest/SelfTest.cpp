@@ -5112,8 +5112,27 @@ namespace selftest
                            && ! kb.isKeyDownForTest (60),
                        NI_TXT ("心跳发现键已经松开，把那个音放掉了（不再一直响）"));
 
-                // The other half of the rule: a window nobody is looking at cannot be
-                // typed into, so everything it started goes.
+                // The rule is about the *application*, not about one window: clicking
+                // the synth editor (or the mixer) must not take the computer keys
+                // away, so a patch can be auditioned with a knob under the mouse.
+                kb.setApplicationForegroundForTest (true);
+
+                check (kb.typingIsLiveForTest (&component),
+                       NI_TXT ("焦点在主窗口时电脑键盘照样能弹（边调音色边试听）"));
+                check (kb.typingIsLiveForTest (nullptr),
+                       NI_TXT ("谁也不持有焦点时照旧能弹"));
+
+                juce::TextEditor typingBox;   // stands in for a focused text field
+                check (! kb.typingIsLiveForTest (&typingBox),
+                       NI_TXT ("焦点在文本框里时不弹（打字优先）"));
+
+                kb.setApplicationForegroundForTest (false);
+                check (! kb.typingIsLiveForTest (&component),
+                       NI_TXT ("整个程序切到后台时不弹"));
+                kb.setApplicationForegroundForTest (true);
+
+                // ... and a key that is still held is let go when HM goes behind
+                // another application.
                 kb.setKeyDownForTest ('X', true);
 
                 check (component.getHeldMidiVoiceCountForTest() > 0,
@@ -5125,7 +5144,7 @@ namespace selftest
 
                 check (component.getHeldMidiVoiceCountForTest() == 0
                            && kb.getTypingKeyCountForTest() == 0,
-                       NI_TXT ("窗口失去焦点时整批放掉（按住键去点别的窗口＝声音停）"));
+                       NI_TXT ("整个程序切到后台时整批放掉（键还按着也不响）"));
 
                 kb.setWindowFocusedForTest (true);
                 kb.setKeyDownForTest ('X', false);   // the fake key is up again
@@ -5394,6 +5413,11 @@ namespace selftest
                     check (! usedWhileOpen,
                            NI_TXT ("虚拟键盘开着时 `3` 不再被频率比接走"));
                 }
+
+                // ---- 虚拟键盘开着时，弹奏键不再被单键快捷键吃掉 ----------------
+                check (kb.isTypingKey ('N')
+                           && ! component.sendKeyPressForTest (juce::KeyPress ('N'), &component),
+                       NI_TXT ("虚拟键盘开着时「n」只弹音，不再同时封参考线"));
 
                 // ---- the space bar still belongs to the transport --------------
                 check (! kb.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey)),

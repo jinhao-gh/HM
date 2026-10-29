@@ -108,3 +108,25 @@ dumpbin /disasm:nobytes "build\NiDaw_artefacts\Release\HM.exe" > disasm.txt
 - 若将来要重新拉取 JUCE：本机 Git 与 curl 的 schannel 取不到 TLS 凭证，
   `git clone` 会失败（`SEC_E_NO_CREDENTIALS`）。可行做法是用 Node 自带的 TLS 栈下载
   GitHub 的 tarball（`node --use-system-ca` 配合一个简单的 https 下载脚本）。
+
+### 6. 本机代码签名（自签名，只对本机有效）
+
+双击 `HM.exe` 报「无法验证发布者」是**没签名**，不是构建问题。本机用一张自签名证书解决：
+
+```powershell
+# 一次性：生成（或复用）证书并信任它。写 CurrentUser\Root 只能用 certutil，
+# Import-Certificate 会以「此操作中不允许使用 UI」失败。
+powershell -NoProfile -ExecutionPolicy Bypass -File work\signing\new_hm_signing_cert.ps1
+
+# 每次构建之后：签名 + 校验（Valid 才算成功）
+powershell -NoProfile -ExecutionPolicy Bypass -File work\signing\run_sign.ps1 `
+    work\app-build5\NiDaw_artefacts\Release\HM.exe
+```
+
+- 证书：`CN=HM, O=HM, OU=Local build`，RSA 3072 / SHA-256 / 5 年；私钥在
+  `Cert:\CurrentUser\My`，公钥同时装进 `CurrentUser\Root` 和 `CurrentUser\TrustedPublisher`。
+- `make_release.bat` 的 `[1b]` 会自动给主程序签名；签名失败则中止发布。
+- 撤销：从 `CurrentUser\My`、`Root`、`TrustedPublisher` 三处删除这张证书即可。
+- **边界**：它只让这台机器、这个 Windows 账户把 HM 认成「HM」。换机器要重新生成证书；
+  发给别人仍然显示未知发布者，那需要正式的代码签名证书（OV/EV 或 Azure Trusted Signing），
+  拿到后把 `work\signing\thumbprint.txt` 换成新证书的指纹，发布流程不用改。

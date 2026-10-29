@@ -534,4 +534,8 @@ work\make_release.bat
   窗口关掉立刻恢复；判断走面板的 `isTypingKey`。
 - 新增测试钩子：`setApplicationForegroundForTest`、`typingIsLiveForTest`。
 - 实测基线：单元测试 **37 组 / 5528 条**；离屏自检 **1488 项 / 61 张快照**；VST3 / VST3FX 通过。
+- 本机签名（2026-10-29）：`work\signing\` 下的自签名证书把 HM 认成发布者，`make_release.bat`
+  的 `[1b]` 自动签名并校验 `Valid`；只对本机当前用户有效，发出去仍需正式 CA 证书。
+  同批修了 `make_release.bat` 的两处问题：自检目录改为整目录清空（残留 `selftest-presets.json`
+  会让波表自检多数一张表），以及被误写成 LF 的批处理换行恢复为 CRLF。
 - 已知取舍：VST 插件编辑器里的文本输入暂按「其它 HM 窗口」处理，未单独拦截插件文本框。

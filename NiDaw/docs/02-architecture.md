@@ -420,7 +420,8 @@ MainComponent
   WavetableTableWindow 自定义波表的编辑窗口（第四十二批）：名字 / 帧数 / 导入 WAV… /
                       从片段取样… / 拷内置… / 试听 C4 / 删除这张表 + 可画的大画布 +
                       帧缩略图 + 谐波条（非模态、设计尺寸面板 + 滚动视口）
-  PresetBar           两个编辑器共用的预设行：下拉（内置 / 我的）+ `<` `>` + 保存 / 重命名 / 删除
+  PresetBar           两个编辑器共用的预设行：单类别库用下拉（内置 / 我的），多类别库用二级菜单
+                      （大类 → 悬停展开音色）+ `<` `>` + 保存 / 重命名 / 删除
   PluginPicker        选插件用的对话框（搜索框 + 列表 + 重新扫描 / 添加目录 / 确定 / 取消）
   PluginWindow        插件自己的界面（非模态、可缩放、全局复用；没有界面时用通用参数面板）
   EffectsWindow       一条轨道的效果器插入链（行头「效果」按钮打开，关闭只隐藏）
@@ -621,9 +622,11 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 
 ## 第六十二批 · 工厂预设、波形预设与 24 dB 滤波级联
 
-- `Core/HybridPresets.h` 是 header-only 的原创工厂库：32 个预设、8 个类别、每类 4 个。`apply()` 先清空到默认，再按类别构建波表层、Sub/Noise、双滤波、ENV、LFO、调制矩阵和 FX；预设不依赖工程文件或外部采样。
+- `Core/HybridPresets.h` 是 header-only 的工厂库：**48 个预设、8 个类别、每类 6 个**（第六十七批）。`apply()` 先清空到默认，再按类别构建波表层（含每层第二振荡器）、Sub/Noise、双滤波、ENV、LFO、调制矩阵和 FX；预设不依赖工程文件或外部采样。
 - `Core/WaveformPresets.h` 是 header-only 的波形库：单周期预设直接给出一个 2048 点周期，多帧预设按 8 帧插值出 0…1 的形态变化。`build()` 通过 `wavetabletables::makeFromFrames` 写成工程自定义表，内置表库不被修改。
-- `HybridEditor` 的预设栏从 `PresetBar::Entry` 读取类别；工厂 id 仍为 1…32，用户预设仍从 `kUserPresetIdBase` 开始。波表编辑器通过 `onWaveformPreset` 回调把生成表写入当前振荡器，整个操作走一次 `applyEdit`。
+- `Core/FmPresets.h` 的工厂库是 **32 个 DX7 ROM-1A 音色**（4 类 × 8，第六十七批），实际参数在生成的 `Core/Dx7FactoryPresets.h`：每个 builder 直接写 `FmPatch` 的六个运算器、算法、反馈、LFO 与移调；`engineAlgorithmFor()` 保存 DX7 算法到本引擎算法的对照表。`Preset` 带 `category`，供 `PresetBar` 的二级菜单分组。
+- `HybridEditor` 的预设栏从 `PresetBar::Entry` 读取类别；工厂 id 为 1…48，用户预设仍从 `kUserPresetIdBase` 开始。波表编辑器通过 `onWaveformPreset` 回调把生成表写入当前振荡器，整个操作走一次 `applyEdit`。
+- `PresetBar` 在 `categories.size() > 1` 时隐藏下拉框与类别框，改用一个显示当前音色名的按钮；点击后 `PopupMenu` 按类别 `addSubMenu`，原生子菜单在悬停/点击时展开，选中项回调 `loadPreset(id)`。单类别库（采样器、鼓机、粒子、减法、波表）继续走原来的下拉路径。
 - 内嵌波表编辑器在混合器里预留 30 px 顶部条：返回按钮在 `(8, 4, 96, 24)`，编辑器 bounds 为 `getLocalBounds().withTrimmedTop(30)`；独立波表窗口不受这个条影响。
 - `HybridSynth` 的 24 dB 滤波使用两套独立状态：`filters[which][channel]` 与 `filtersStage2[which][channel]`。两套都在 `prepare` / `reset` 里初始化，控制率同时设置类型、截止和共振；处理时第二级从 `filtersStage2` 取样。这样 24 dB 带通不会因同一状态重复推进而发散。
 - 缩略图的 2D/3D 状态保存在 `HybridOscillatorThumbnail` 实例里，`setSource()` 不重置；3D 绘制把每片波形闭合到自己的基线并记录整组 extent，供自检确认没有越界。`HybridEditor` 的 30 Hz 定时器只在有活跃声部时刷新，静下来后停表。

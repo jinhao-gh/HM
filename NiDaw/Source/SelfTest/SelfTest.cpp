@@ -795,18 +795,20 @@ namespace selftest
             pump();
 
             // The preset bank is listed and picking one rewrites the whole patch.
-            editor.selectPresetForTest (2);        // 钟琴
+            const auto pianoIndex = fm::findPresetByName (NI_TXT ("电钢琴 1"));
+            check (pianoIndex >= 0, "the DX7 bank lists 电钢琴 1");
+            editor.selectPresetForTest (pianoIndex);   // DX7 E.PIANO 1
             pump();
 
             const auto* track = document.findTrack (trackId);
 
-            check (track != nullptr && track->synth.patch.name == NI_TXT ("钟琴"),
+            check (track != nullptr && track->synth.patch.name == NI_TXT ("电钢琴 1"),
                    "picking a preset names the patch (got '"
                        + (track != nullptr ? track->synth.patch.name : juce::String()) + "')");
-            check (track != nullptr && track->synth.patch.algorithm == 3,
-                   "the bell preset brings its own algorithm (got "
+            check (track != nullptr && track->synth.patch.algorithm == 17,
+                   "the electric piano brings its own algorithm (got "
                        + juce::String (track != nullptr ? track->synth.patch.algorithm : 0) + ")");
-            check (editor.getSelectedPresetIndex() == 2,
+            check (editor.getSelectedPresetIndex() == pianoIndex,
                    "the preset box follows the patch");
 
             // ---- level one: the library of 32 diagrams ------------------------
@@ -1049,7 +1051,7 @@ namespace selftest
 
             editor.selectPresetForTest (0);        // a factory sound first
             pump();
-            check (document.findTrack (trackId)->synth.patch.name == NI_TXT ("电钢琴"),
+            check (document.findTrack (trackId)->synth.patch.name == NI_TXT ("钢琴 1"),
                    "a factory preset loads over it");
 
             editor.loadUserPresetForTest (0);
@@ -8633,28 +8635,26 @@ namespace selftest
             hybridPresetBar.refresh();
             check (hybridPresetBar.getCategoryCountForTest() == 8,
                    NI_TXT ("the factory catalogue has eight second-level categories"));
+            check (hybridPresetBar.isMenuModeForTest(),
+                   NI_TXT ("the preset bar is a two-level category menu"));
             check (hybridPresetBar.getVisibleEntryCountForTest()
                        == hybridpresets::factoryPresetCount(),
                    NI_TXT ("the preset list starts with every factory sound"));
+            check (hybridPresetBar.describeMenuForTest().contains (NI_TXT ("钢琴与键盘=6"))
+                       && hybridPresetBar.describeMenuForTest().contains (NI_TXT ("贝斯=6")),
+                   NI_TXT ("every category holds six sounds (" )
+                       + hybridPresetBar.describeMenuForTest() + NI_TXT (")"));
 
-            const auto bassCategory = hybridpresets::category (8);
-            check (hybridPresetBar.selectCategoryForTest (bassCategory),
-                   NI_TXT ("a category can be selected in the preset bar"));
-            check (hybridPresetBar.getVisibleEntryCountForTest() == 4,
-                   NI_TXT ("the bass category shows exactly four sounds"));
-
-            const auto firstBassId = hybridPresetBar.getVisibleEntryIdForTest (0);
+            const auto firstBassId = hybridPresetBar.getVisibleEntryIdForTest (12);
             check (firstBassId > 0 && hybridPresetBar.loadPreset (firstBassId),
-                   NI_TXT ("a factory sound loads from the filtered list"));
+                   NI_TXT ("a factory sound loads from the category menu"));
             pump();
             check (hybridTrack != nullptr
-                       && hybridTrack->hybrid.name == hybridpresets::name (8),
+                       && hybridTrack->hybrid.name == hybridpresets::name (12),
                    NI_TXT ("the chosen factory sound reaches the instrument"));
             check (writeImage (snapshot (hybridEditor),
                                outputDirectory.getChildFile ("56-hybrid-presets.png")),
                    NI_TXT ("factory preset catalogue snapshot"));
-            check (hybridPresetBar.selectCategoryForTest (juce::String()),
-                   NI_TXT ("the preset bar returns to the full catalogue"));
 
             check (hybridEditor.getFxButtonBoundsForTest().getWidth() > 0,
                    NI_TXT ("the FX button has a real size"));

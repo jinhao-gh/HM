@@ -13,11 +13,11 @@ namespace nidaw
 constexpr int kBuiltInPresetIdBase = 1;
 constexpr int kUserPresetIdBase    = 1001;
 
-/** The "预设" row shared by the FM and the sampler editors.
+/** The "预设" row shared by the instrument editors.
 
-    It only draws and drives the row; the instrument behind it decides what a
-    preset is. Entries come in two groups - the built-in bank and the user's own -
-    and every entry carries the id the ComboBox uses.
+    With one category (or none) it is the flat list it has always been. With two
+    or more categories it becomes a two-level menu: clicking the name opens the
+    categories, and hovering or clicking one of them opens that category's sounds.
 */
 class PresetBar : public juce::Component
 {
@@ -53,21 +53,30 @@ public:
     void resized() override;
 
     /** Diagnostic hooks. */
-    juce::Rectangle<int> getComboBoxBoundsForTest() const { return combo.getBounds(); }
-    int  getSelectedIdForTest() const { return combo.getSelectedId(); }
+    juce::Rectangle<int> getComboBoxBoundsForTest() const
+    {
+        return menuMode ? menuButton.getBounds() : combo.getBounds();
+    }
+    int  getSelectedIdForTest() const { return currentId(); }
     bool canRenameForTest() const { return renameButton.isEnabled(); }
     bool canDeleteForTest() const { return deleteButton.isEnabled(); }
     juce::Rectangle<int> getCategoryBoundsForTest() const { return categoryCombo.getBounds(); }
     int  getCategoryCountForTest() const noexcept { return categories.size(); }
     int  getVisibleEntryCountForTest() const noexcept { return (int) filteredEntries.size(); }
-    int  getVisibleEntryIdForTest (int index) const;
-    juce::String getSelectedCategoryForTest() const { return selectedCategory; }
-    /** Empty selects every category again. */
+    int  getVisibleEntryIdForTest (int index) const;    juce::String getSelectedCategoryForTest() const { return selectedCategory; }
+    /** Empty selects every category again (flat mode only). */
     bool selectCategoryForTest (const juce::String& category);
+    /** True when the bank is shown as the two-level category menu. */
+    bool isMenuModeForTest() const noexcept { return menuMode; }
+    /** "类别=条目数" per line, without opening a native menu. */
+    juce::String describeMenuForTest() const;
 
 private:
     const Entry* findEntry (int id) const;
+    int  currentId() const;
     void selectEntryById (int id, bool notify);
+    void showPresetMenu();
+    juce::String groupOf (const Entry& entry) const;
     void updateButtonStates();
     void step (int delta);
     void rebuildVisibleEntries();
@@ -85,7 +94,13 @@ private:
     juce::Label label;
     juce::ComboBox categoryCombo;
     juce::ComboBox combo;
+    juce::TextButton menuButton;
     juce::TextButton prevButton, nextButton, saveButton, renameButton, deleteButton;
+
+    /** Multi-category banks use the hierarchical menu instead of the flat combo. */
+    bool menuMode = false;
+    /** The id the bar is standing on (both modes keep it here). */
+    int selection = 0;
 
     /** Set while the list is being rebuilt, so refilling it cannot fire a load. */
     bool updating = false;

@@ -40,14 +40,13 @@ PresetBar::PresetBar (const juce::String& builtInSectionName)
 
         const auto id = combo.getSelectedId();
 
-        if (id == 0)
-            return;
-
-        if (loadPreset != nullptr)
-            loadPreset (id);
-
-        updateButtonStates();
+        if (id != 0)
+            selectEntryById (id, true);
     };
+
+    addChildComponent (menuButton);
+    menuButton.setTooltip (NI_TXT ("按类别选择音色"));
+    menuButton.onClick = [this] { showPresetMenu(); };
 
     auto setupButton = [this] (juce::TextButton& button, const juce::String& text)
     {
@@ -87,15 +86,36 @@ const PresetBar::Entry* PresetBar::findEntry (int id) const
     return nullptr;
 }
 
+int PresetBar::currentId() const
+{
+    return selection;
+}
+
+juce::String PresetBar::groupOf (const Entry& entry) const
+{
+    if (entry.category.isNotEmpty())
+        return entry.category;
+
+    return entry.isUser ? NI_TXT ("我的") : builtInName;
+}
+
 void PresetBar::selectEntryById (int id, bool notify)
 {
-    combo.setSelectedId (id, notify ? juce::sendNotificationSync : juce::dontSendNotification);
+    selection = id;
+
+    if (const auto* entry = findEntry (id))
+        menuButton.setButtonText (entry->name);
+
+    combo.setSelectedId (id, juce::dontSendNotification);
     updateButtonStates();
+
+    if (notify && loadPreset != nullptr)
+        loadPreset (id);
 }
 
 void PresetBar::updateButtonStates()
 {
-    const auto* entry = findEntry (combo.getSelectedId());
+    const auto* entry = findEntry (selection);
     const auto isUser = entry != nullptr && entry->isUser;
 
     renameButton.setEnabled (isUser);
@@ -114,30 +134,41 @@ void PresetBar::refresh()
         if (entry.category.isNotEmpty() && ! categories.contains (entry.category))
             categories.add (entry.category);
 
-    // Keep the order the instrument declared: "钢琴 / 吉他 / 贝斯 / ..." reads
-    // like a catalogue, while an alphabetical sort of the Chinese labels looks
-    // arbitrary.
+    // Two or more categories are shown as a two-level menu; a single-category
+    // instrument (sampler, drums, granular, ...) keeps the flat combo it had.
+    menuMode = categories.size() > 1;
+
     const auto categoryWasVisible = categoryCombo.isVisible();
-    categoryCombo.setVisible (! categories.isEmpty());
-    categoryCombo.clear (juce::dontSendNotification);
+    categoryCombo.setVisible (! menuMode && ! categories.isEmpty());
+    combo.setVisible (! menuMode);
+    menuButton.setVisible (menuMode);
 
-    if (! categories.isEmpty())
+    if (! menuMode)
     {
-        categoryCombo.addItem (NI_TXT ("全部"), 1);
+        categoryCombo.clear (juce::dontSendNotification);
 
-        for (int i = 0; i < categories.size(); ++i)
-            categoryCombo.addItem (categories[i], i + 2);
+        if (! categories.isEmpty())
+        {
+            categoryCombo.addItem (NI_TXT ("全部"), 1);
 
-        if (selectedCategory.isNotEmpty() && ! categories.contains (selectedCategory))
+            for (int i = 0; i < categories.size(); ++i)
+                categoryCombo.addItem (categories[i], i + 2);
+
+            if (selectedCategory.isNotEmpty() && ! categories.contains (selectedCategory))
+                selectedCategory.clear();
+
+            auto categoryId = 1;
+
+            for (int i = 0; i < categories.size(); ++i)
+                if (categories[i] == selectedCategory)
+                    categoryId = i + 2;
+
+            categoryCombo.setSelectedId (categoryId, juce::dontSendNotification);
+        }
+        else
+        {
             selectedCategory.clear();
-
-        auto categoryId = 1;
-
-        for (int i = 0; i < categories.size(); ++i)
-            if (categories[i] == selectedCategory)
-                categoryId = i + 2;
-
-        categoryCombo.setSelectedId (categoryId, juce::dontSendNotification);
+        }
     }
     else
     {
@@ -150,29 +181,33 @@ void PresetBar::refresh()
     rebuildVisibleEntries();
 
     const auto hasVisible = ! filteredEntries.empty();
-    combo.clear (juce::dontSendNotification);
-    combo.setTextWhenNothingSelected (hasVisible ? juce::String() : NI_TXT ("（没有预设）"));
 
-    bool builtInHeadingAdded = false;
-    bool userHeadingAdded = false;
-
-    for (const auto& entry : filteredEntries)
+    if (! menuMode)
     {
-        if (entry.isUser)
-        {
-            if (! userHeadingAdded)
-            {
-                combo.addSectionHeading (NI_TXT ("我的"));
-                userHeadingAdded = true;
-            }
-        }
-        else if (! builtInHeadingAdded)
-        {
-            combo.addSectionHeading (builtInName);
-            builtInHeadingAdded = true;
-        }
+        combo.clear (juce::dontSendNotification);
+        combo.setTextWhenNothingSelected (hasVisible ? juce::String() : NI_TXT ("（没有预设）"));
 
-        combo.addItem (entry.name, entry.id);
+        bool builtInHeadingAdded = false;
+        bool userHeadingAdded = false;
+
+        for (const auto& entry : filteredEntries)
+        {
+            if (entry.isUser)
+            {
+                if (! userHeadingAdded)
+                {
+                    combo.addSectionHeading (NI_TXT ("我的"));
+                    userHeadingAdded = true;
+                }
+            }
+            else if (! builtInHeadingAdded)
+            {
+                combo.addSectionHeading (builtInName);
+                builtInHeadingAdded = true;
+            }
+
+            combo.addItem (entry.name, entry.id);
+        }
     }
 
     // A sound that was saved by the user is highlighted in preference to a
@@ -196,8 +231,17 @@ void PresetBar::refresh()
                 break;
             }
 
-    combo.setSelectedId (chosen, juce::dontSendNotification);
+    selection = chosen;
+
+    if (! menuMode)
+        combo.setSelectedId (chosen, juce::dontSendNotification);
+
+    menuButton.setButtonText (chosen != 0 && findEntry (chosen) != nullptr
+                                  ? findEntry (chosen)->name
+                                  : NI_TXT ("（没有预设）"));
+
     updateButtonStates();
+    resized();
 }
 
 void PresetBar::rebuildVisibleEntries()
@@ -205,7 +249,7 @@ void PresetBar::rebuildVisibleEntries()
     filteredEntries.clear();
 
     for (const auto& entry : entries)
-        if (selectedCategory.isEmpty() || entry.category == selectedCategory)
+        if (menuMode || selectedCategory.isEmpty() || entry.category == selectedCategory)
             filteredEntries.push_back (entry);
 }
 
@@ -218,12 +262,79 @@ int PresetBar::getVisibleEntryIdForTest (int index) const
 
 bool PresetBar::selectCategoryForTest (const juce::String& category)
 {
+    if (menuMode)
+        return false;   // the menu has no separate category filter
+
     if (category.isNotEmpty() && ! categories.contains (category))
         return false;
 
     selectedCategory = category;
     refresh();
     return true;
+}
+
+juce::String PresetBar::describeMenuForTest() const
+{
+    juce::StringArray order;
+    std::vector<int> counts;
+
+    for (const auto& entry : entries)
+    {
+        const auto group = groupOf (entry);
+        const auto index = order.indexOf (group);
+
+        if (index < 0)
+        {
+            order.add (group);
+            counts.push_back (1);
+        }
+        else
+        {
+            ++counts[(size_t) index];
+        }
+    }
+
+    juce::String text;
+
+    for (int i = 0; i < order.size(); ++i)
+        text << order[i] << "=" << counts[(size_t) i] << "\n";
+
+    return text;
+}
+
+void PresetBar::showPresetMenu()
+{
+    juce::StringArray order;
+
+    for (const auto& entry : entries)
+    {
+        const auto group = groupOf (entry);
+
+        if (! order.contains (group))
+            order.add (group);
+    }
+
+    juce::PopupMenu menu;
+
+    for (const auto& group : order)
+    {
+        juce::PopupMenu sub;
+
+        for (const auto& entry : entries)
+            if (groupOf (entry) == group)
+                sub.addItem (entry.id, entry.name, true, entry.id == currentId());
+
+        menu.addSubMenu (group, sub, true);
+    }
+
+    juce::Component::SafePointer<PresetBar> safe (this);
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&menuButton),
+                        [safe] (int result)
+                        {
+                            if (safe != nullptr && result > 0)
+                                safe->selectEntryById (result, true);
+                        });
 }
 
 void PresetBar::step (int delta)
@@ -234,7 +345,7 @@ void PresetBar::step (int delta)
     auto index = -1;
 
     for (int i = 0; i < (int) filteredEntries.size(); ++i)
-        if (filteredEntries[(size_t) i].id == combo.getSelectedId())
+        if (filteredEntries[(size_t) i].id == currentId())
             index = i;
 
     index = index < 0 ? 0 : index;
@@ -306,7 +417,7 @@ void PresetBar::showSaveDialog()
 
 void PresetBar::showRenameDialog()
 {
-    const auto* entry = findEntry (combo.getSelectedId());
+    const auto* entry = findEntry (currentId());
 
     if (entry == nullptr || ! entry->isUser || ! showDialogs)
         return;
@@ -340,7 +451,7 @@ void PresetBar::showRenameDialog()
 
 void PresetBar::confirmDelete()
 {
-    const auto* entry = findEntry (combo.getSelectedId());
+    const auto* entry = findEntry (currentId());
 
     if (entry == nullptr || ! entry->isUser)
         return;
@@ -393,7 +504,7 @@ void PresetBar::resized()
 
     label.setBounds (row.removeFromLeft (34));
 
-    if (categoryCombo.isVisible())
+    if (! menuMode && categoryCombo.isVisible())
     {
         categoryCombo.setBounds (row.removeFromLeft (116).reduced (2, 1));
         row.removeFromLeft (kButtonGap);
@@ -410,7 +521,10 @@ void PresetBar::resized()
     prevButton.setBounds (row.removeFromRight (26).reduced (kButtonGap / 2, 0));
     row.removeFromRight (kButtonGap);
 
-    combo.setBounds (row.reduced (0, 1));
+    if (menuMode)
+        menuButton.setBounds (row.reduced (0, 1));
+    else
+        combo.setBounds (row.reduced (0, 1));
 }
 
 } // namespace nidaw

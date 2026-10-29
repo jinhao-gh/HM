@@ -1,4 +1,5 @@
 #include "TestSupport.h"
+#include "../Core/FmPresets.h"
 
 class SynthTests : public juce::UnitTest
 {
@@ -131,6 +132,69 @@ public:
             expectGreaterThan (buffer.getRMSLevel (0, 1000, 9000), 0.005f);
             expect (std::isfinite (peak));
             expectLessThan (peak, 4.0f);
+        }
+
+        beginTest (NI_TXT ("the DX7 factory bank is 32 voices in four categories"));
+        {
+            int count = 0;
+            const auto* presets = fm::bank (count);
+            expectEquals (count, 32);
+
+            juce::StringArray names;
+            std::map<juce::String, int> perCategory;
+
+            for (int i = 0; i < count; ++i)
+            {
+                const auto presetName = juce::String::fromUTF8 (presets[i].name);
+                const auto presetCategory = juce::String::fromUTF8 (presets[i].category);
+
+                expect (presetName.isNotEmpty());
+                expect (presetCategory.isNotEmpty());
+                expect (! names.contains (presetName));
+                names.add (presetName);
+                ++perCategory[presetCategory];
+            }
+
+            expectEquals ((int) perCategory.size(), 4);
+
+            for (const auto& entry : perCategory)
+                expectEquals (entry.second, 8);
+
+            expectEquals (fm::dx7::engineAlgorithmFor (5), 17);    // E.PIANO 1: three stacks
+            expectEquals (fm::dx7::engineAlgorithmFor (32), 32);   // six sines
+
+            for (int i = 0; i < count; ++i)
+            {
+                FmPatch patch;
+                fm::applyPreset (patch, i);
+                expectEquals (patch.name, juce::String::fromUTF8 (presets[i].name));
+
+                SynthParams params;
+                params.patch = patch;
+                params.gain = 1.0f;
+
+                TrackSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, 220.0f, 100.0f);
+
+                juce::AudioBuffer<float> buffer (2, 144000);
+                buffer.clear();
+                synth.renderAdding (buffer, 0, 144000, 1.0f, 1.0f);
+
+                auto peak = 0.0f;
+
+                for (int s = 0; s < 144000; ++s)
+                    peak = juce::jmax (peak, std::abs (buffer.getSample (0, s)));
+
+                // Three seconds: some of the DX7 envelopes (TAKE OFF) fade in over
+                // more than a second, while others are percussive and silent again
+                // by then, so the peak is what "makes sound" has to mean here.
+                expect (std::isfinite (peak), "preset " + patch.name + " is not finite");
+                expectGreaterThan (peak, 0.01f, "preset " + patch.name + " is silent");
+                expectLessThan (peak, 4.0f, "preset " + patch.name + " peaks at "
+                                                + juce::String (peak, 3));
+            }
         }
 
         beginTest ("a switched-off modulator stops contributing");

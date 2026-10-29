@@ -130,3 +130,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File work\signing\run_sign.ps1 `
 - **边界**：它只让这台机器、这个 Windows 账户把 HM 认成「HM」。换机器要重新生成证书；
   发给别人仍然显示未知发布者，那需要正式的代码签名证书（OV/EV 或 Azure Trusted Signing），
   拿到后把 `work\signing\thumbprint.txt` 换成新证书的指纹，发布流程不用改。
+- 自签名**不能**通过 SmartScreen 的「无法识别的应用」检查（它只认微软信誉库）。本机开发机
+  若仍被拦，可运行 `work\disable_smartscreen_app_check.ps1`（需管理员，改两个 HKLM 值并
+  重启 Explorer）；分发版本只能靠正式证书。

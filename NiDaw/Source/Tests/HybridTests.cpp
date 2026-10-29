@@ -826,7 +826,7 @@ public:
 
         beginTest ("factory presets are a catalogue of eight categories");
         {
-            expectEquals (hybridpresets::factoryPresetCount(), 32);
+            expectEquals (hybridpresets::factoryPresetCount(), 48);
 
             juce::StringArray categories;
             std::map<juce::String, int> perCategory;
@@ -851,7 +851,7 @@ public:
             expectEquals (categories.size(), 8);
 
             for (const auto& entry : perCategory)
-                expectEquals (entry.second, 4);
+                expectEquals (entry.second, 6);
         }
 
         beginTest ("factory presets use the whole hybrid engine");
@@ -859,6 +859,8 @@ public:
             int withFx = 0;
             int withLfoMod = 0;
             int withSubOrNoise = 0;
+            int withSecondOsc = 0;
+            int withModMatrix = 0;
 
             for (int i = 0; i < hybridpresets::factoryPresetCount(); ++i)
             {
@@ -883,16 +885,26 @@ public:
 
                 bool fxOn = false;
                 bool lfoModOn = false;
+                bool secondOscOn = false;
+                bool modMatrixOn = false;
 
                 for (const auto& slot : p.fxSlots)
                     if (slot.enabled)
                         fxOn = true;
 
                 for (const auto& slot : p.modSlots)
-                    if (slot.enabled
-                        && (int) slot.source >= (int) HybridModSource::lfo1
-                        && (int) slot.source <= (int) HybridModSource::lfo6)
-                        lfoModOn = true;
+                    if (slot.enabled && slot.source != HybridModSource::none)
+                    {
+                        modMatrixOn = true;
+
+                        if ((int) slot.source >= (int) HybridModSource::lfo1
+                            && (int) slot.source <= (int) HybridModSource::lfo6)
+                            lfoModOn = true;
+                    }
+
+                for (const auto& layer : p.layers)
+                    if (layer.enabled && layer.wavetable.oscs[1].enabled)
+                        secondOscOn = true;
 
                 if (fxOn)
                     ++withFx;
@@ -902,13 +914,23 @@ public:
 
                 if (p.sub.enabled || p.noise.enabled)
                     ++withSubOrNoise;
+
+                if (secondOscOn)
+                    ++withSecondOsc;
+
+                if (modMatrixOn)
+                    ++withModMatrix;
             }
 
-            expect (withFx >= 20, "factory presets with FX: " + juce::String (withFx));
-            expect (withLfoMod >= 8, "factory presets with LFO modulation: "
+            expect (withFx >= 40, "factory presets with FX: " + juce::String (withFx));
+            expect (withLfoMod >= 16, "factory presets with LFO modulation: "
                                          + juce::String (withLfoMod));
-            expect (withSubOrNoise >= 4, "factory presets with Sub/Noise: "
-                                             + juce::String (withSubOrNoise));
+            expect (withSubOrNoise >= 8, "factory presets with Sub/Noise: "
+                                            + juce::String (withSubOrNoise));
+            expect (withSecondOsc >= 12, "factory presets with a second oscillator: "
+                                            + juce::String (withSecondOsc));
+            expect (withModMatrix >= 10, "factory presets using the mod matrix: "
+                                            + juce::String (withModMatrix));
         }
 
         beginTest ("every factory preset makes sound");
@@ -928,17 +950,25 @@ public:
                 synth.renderAdding (buffer, 0, buffer.getNumSamples(), 1.0f, 1.0f);
 
                 double energy = 0.0;
+                float peak = 0.0f;
+                bool finite = true;
 
                 for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
                     for (int s = 0; s < buffer.getNumSamples(); ++s)
                     {
                         const auto value = (double) buffer.getSample (channel, s);
                         energy += value * value;
+                        peak = juce::jmax (peak, (float) std::abs (value));
+                        finite = finite && std::isfinite ((float) value);
                     }
 
                 expect (energy > 1.0e-4,
                         "factory preset " + hybridpresets::name (i)
                             + " produced no audio (energy " + juce::String (energy, 6) + ")");
+                expect (finite, "factory preset " + hybridpresets::name (i)
+                                    + " produced a non-finite sample");
+                expect (peak < 4.0f, "factory preset " + hybridpresets::name (i)
+                                         + " peaks at " + juce::String (peak, 3));
                 synth.allNotesOff (true);
             }
         }

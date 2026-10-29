@@ -537,7 +537,8 @@ std::vector<PresetBar::Entry> SynthEditor::buildPresetEntries() const
     const auto* bank = fm::bank (count);
 
     for (int i = 0; i < count; ++i)
-        list.push_back ({ kBuiltInPresetIdBase + i, juce::String::fromUTF8 (bank[i].name), false });
+        list.push_back ({ kBuiltInPresetIdBase + i, juce::String::fromUTF8 (bank[i].name), false,
+                          juce::String::fromUTF8 (bank[i].category) });
 
     const auto& saved = presets.getFmPresets();
 

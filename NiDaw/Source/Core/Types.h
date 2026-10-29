@@ -37,29 +37,66 @@ constexpr juce::int64 kDefaultClipTicks = (juce::int64) kTicksPerQuarter * 16;
 /** A clip may never be shorter than this. */
 constexpr juce::int64 kMinClipTicks = (juce::int64) kTicksPerQuarter;
 
-/** The size of the FM engine: six operators and 32 algorithms. */
+/** The size of the FM engine: six operators and two banks of 32 algorithms.
+
+    1..32 are HM's own routings (the ones every project written before the DX7
+    work uses); 33..64 are the Yamaha DX7's 32 factory routings, added so an
+    imported DX7 voice can use its real topology instead of an approximation.
+*/
 constexpr int kFmOperators      = 6;
-constexpr int kFmAlgorithmCount = 32;
+constexpr int kFmAlgorithmCount = 64;
+
+/** Which bank an algorithm index belongs to. */
+constexpr int kFmDx7AlgorithmBase = 32;
+
+/** How an operator's frequency follows the note. */
+enum class FmOscMode
+{
+    ratio = 0,   // frequency = note x ratio
+    fixed = 1    // a fixed frequency, ignoring the note
+};
+
+/** The four keyboard level scaling curves the DX7 offers. */
+enum class FmScaleCurve
+{
+    negLin = 0,  // -LIN: quieter away from the breakpoint
+    negExp = 1,  // -EXP: quieter, curving down
+    posExp = 2,  // +EXP: louder, curving up
+    posLin = 3   // +LIN: louder away from the breakpoint
+};
 
 /** One FM operator, in the DX7 idiom.
 
     All six operators of a voice run at once: each has a sine oscillator whose
-    frequency is the note's frequency times `ratio`, its own four-stage
-    RATE/LEVEL envelope, and an output level. Where that output goes depends on
-    the algorithm - to the track's audio output (a carrier) or into another
-    operator's phase (a modulator).
+    frequency is the note's frequency times `ratio` (or a fixed frequency), its
+    own four-stage RATE/LEVEL envelope, and an output level. Where that output
+    goes depends on the algorithm - to the track's audio output (a carrier) or
+    into another operator's phase (a modulator).
 
     Rates and levels are 0..99 like the original: for a rate, larger is faster.
 */
 struct FmOperator
 {
+    FmOscMode mode     = FmOscMode::ratio;
     float ratio       = 1.0f;    // 0.5 .. 32 times the note frequency
+    float fixedHz     = 1000.0f; // used when mode == fixed
     float detune      = 0.0f;    // -1 .. +1, a few cents either way
     int   outputLevel = 99;      // 0..99; on a modulator this is the FM depth
     int   velSens     = 0;       // 0..7, how much velocity pulls this one down
     int   rateScale   = 0;       // 0..7, shortens the envelope for higher notes
     int   rate[4]     = { 99, 70, 60, 60 };   // R1..R4
-    int   level[4]    = { 99, 85, 70, 0 };    // L1..L4; L3 is the sustain level
+    int   level[4]    = { 99, 99, 99, 0 };    // L1..L4; L3 is the sustain level
+
+    /** Keyboard level scaling (DX7): the level falls (or rises) away from the
+        breakpoint, with an independent curve and depth on either side. */
+    int          breakPoint = 48;                       // MIDI note, A-1..C8
+    FmScaleCurve leftCurve  = FmScaleCurve::negLin;
+    FmScaleCurve rightCurve = FmScaleCurve::negLin;
+    int          leftDepth  = 0;                        // 0..99
+    int          rightDepth = 0;                        // 0..99
+
+    /** 0..3: how much the LFO's amplitude modulation reaches this operator. */
+    int   amSens      = 0;
 
     /** A muted operator keeps running its envelope but contributes nothing:
         it neither sounds nor modulates anyone. The wirings stay as they are, so
@@ -67,6 +104,15 @@ struct FmOperator
     bool  enabled     = true;
 
     bool operator== (const FmOperator&) const = default;
+};
+
+/** The DX7 pitch envelope: four rates and four levels, 50 = no pitch offset. */
+struct FmPitchEg
+{
+    int rate[4]  = { 99, 99, 99, 99 };
+    int level[4] = { 50, 50, 50, 50 };
+
+    bool operator== (const FmPitchEg&) const = default;
 };
 
 /** The operators a patch starts from: one audible sine carrier and five silent
@@ -89,14 +135,27 @@ struct FmPatch
     juce::String name;
     /** ops[0] is operator 1 - the one nearest the output in the diagrams. */
     std::array<FmOperator, kFmOperators> ops = makeDefaultOperators();
-    int algorithm = 1;     // 1..32
-    int feedback  = 0;     // 0..7, operator 6 modulating itself
+    int algorithm = 1;     // 1..64 (1..32 HM, 33..64 DX7)
+    int feedback  = 0;     // 0..7, the algorithm's feedback operator modulating itself
     int lfoRate       = 35;   // 0..99
     int lfoDelay      = 0;    // 0..99, fade-in time
-    int lfoWaveform   = 0;    // 0 triangle, 1 saw up, 2 saw down, 3 square, 4 sample & hold
+    /** 0 triangle, 1 saw down, 2 saw up, 3 square, 4 sine, 5 sample & hold when
+        classicEngine is on; the older order (0 triangle, 1 saw up, 2 saw down,
+        3 square, 4 sample & hold) when it is off. */
+    int lfoWaveform   = 0;
     int lfoPitchDepth = 0;    // 0..99, vibrato
     int lfoAmpDepth   = 0;    // 0..99, tremolo
+    int lfoPitchModSens = 0;  // 0..7, DX7 pitch modulation sensitivity
+    bool lfoSync      = false; // true: the LFO phase restarts on every note-on
     int transpose = 0;        // semitones, -24..+24
+
+    FmPitchEg pitchEg;
+
+    /** True: the DX7-style dB level/rate curves, keyboard scaling, fixed
+        frequency, pitch EG and velocity curve. False: the behaviour every
+        project written before this existed heard, kept so old songs do not
+        change. New patches and the DX7 factory bank use true. */
+    bool classicEngine = true;
 
     bool operator== (const FmPatch&) const = default;
 };

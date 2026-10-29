@@ -26,4 +26,21 @@ inline int rateForSeconds (double seconds) noexcept
     return juce::jlimit (0, 99, (int) std::lround (r * 99.0));
 }
 
+/** The DX7 envelope timeline: RATE 99 is about a millisecond, RATE 0 about
+    twenty seconds, and the steps bunch up towards the fast end exactly like the
+    original's rate table. Used when `FmPatch::classicEngine` is on. */
+inline double rateToSecondsClassic (int rate) noexcept
+{
+    const auto r = juce::jlimit (0, 99, rate) / 99.0;
+    return 0.001 * std::pow (20000.0, 1.0 - r);
+}
+
+/** The classic RATE that makes a segment take roughly `seconds`. */
+inline int classicRateForSeconds (double seconds) noexcept
+{
+    const auto clamped = juce::jlimit (0.001, 20.0, seconds);
+    const auto r = 1.0 - std::log (clamped / 0.001) / std::log (20000.0);
+    return juce::jlimit (0, 99, (int) std::lround (r * 99.0));
+}
+
 } // namespace nidaw::fm

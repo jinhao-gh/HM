@@ -12,13 +12,21 @@ namespace
     constexpr int kKeyboardHeight = 68;
     constexpr int kRowGap         = 6;
     constexpr int kLibraryColumns = 8;
+    constexpr int kLibraryPageSize = 32;
     constexpr int kEnvelopeHeight = 96;
 
+    /** DX7 order: triangle, saw down, saw up, square, sine, sample & hold. */
     const juce::StringArray& lfoWaveNames()
     {
-        static const juce::StringArray names { NI_TXT ("三角波"), NI_TXT ("上升锯齿"),
-                                               NI_TXT ("下降锯齿"), NI_TXT ("方波"),
-                                               NI_TXT ("随机保持") };
+        static const juce::StringArray names { NI_TXT ("三角波"), NI_TXT ("下降锯齿"),
+                                               NI_TXT ("上升锯齿"), NI_TXT ("方波"),
+                                               NI_TXT ("正弦"), NI_TXT ("随机保持") };
+        return names;
+    }
+
+    const juce::StringArray& scaleCurveNames()
+    {
+        static const juce::StringArray names { "-LIN", "-EXP", "+EXP", "+LIN" };
         return names;
     }
 }
@@ -56,7 +64,8 @@ SynthEditor::SynthEditor (ProjectDocument& documentToUse, AudioEngine& audioToUs
             case View::overview:       setView (View::library); break;
             case View::operatorDetail: setView (View::overview); break;
             case View::lfo:
-            case View::output:         setView (View::overview); break;
+            case View::output:
+            case View::extras:         setView (View::overview); break;
             default: break;
         }
     };
@@ -76,13 +85,27 @@ SynthEditor::SynthEditor (ProjectDocument& documentToUse, AudioEngine& audioToUs
     outputButton.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
     outputButton.onClick = [this] { setView (currentView == View::output ? View::overview : View::output); };
 
-    // ---- level one: the 32 algorithm pictures ------------------------------
-    for (int i = 0; i < kFmAlgorithmCount; ++i)
+    addChildComponent (extrasButton);
+    extrasButton.setButtonText (NI_TXT ("细节"));
+    extrasButton.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
+    extrasButton.onClick = [this] { setView (currentView == View::extras ? View::overview : View::extras); };
+
+    addChildComponent (libraryPageButton);
+    libraryPageButton.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
+    libraryPageButton.setButtonText (NI_TXT ("HM 1-32"));
+    libraryPageButton.onClick = [this]
+    {
+        libraryPage = libraryPage == 0 ? 1 : 0;
+        updateLibraryPage();
+    };
+
+    // ---- level one: two pages of 32 algorithm pictures ---------------------
+    for (int i = 0; i < kLibraryPageSize; ++i)
     {
         auto cell = std::make_unique<AlgorithmDiagram>();
         cell->setThumbnail (true);
         cell->setAlgorithm (i + 1);
-        cell->onDiagramClicked = [this, i] { selectAlgorithm (i + 1); };
+        cell->onDiagramClicked = [this, i] { selectAlgorithm (algorithmForCell (i)); };
         addChildComponent (*cell);
         algorithmCells.push_back (std::move (cell));
     }
@@ -189,6 +212,24 @@ SynthEditor::SynthEditor (ProjectDocument& documentToUse, AudioEngine& audioToUs
     setupLfoSlider (lfoDelaySlider, lfoDelayLabel, NI_TXT ("延迟"), 99.0);
     setupLfoSlider (lfoPitchSlider, lfoPitchLabel, NI_TXT ("音高深度"), 99.0);
     setupLfoSlider (lfoAmpSlider, lfoAmpLabel, NI_TXT ("幅度深度"), 99.0);
+    setupLfoSlider (lfoPitchModSensSlider, lfoPitchModSensLabel, NI_TXT ("音高灵敏度"), 7.0);
+
+    addChildComponent (lfoSyncButton);
+    lfoSyncButton.setButtonText (NI_TXT ("按键同步"));
+    lfoSyncButton.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
+    lfoSyncButton.onClick = [this]
+    {
+        if (updating)
+            return;
+
+        if (auto* track = currentTrack())
+        {
+            beginParamEdit (NI_TXT ("调整 LFO"));
+            track->synth.patch.lfoSync = ! track->synth.patch.lfoSync;
+            pushParams (track->synth);
+            refresh();
+        }
+    };
 
     addChildComponent (lfoWaveLabel);
     lfoWaveLabel.setText (NI_TXT ("波形"), juce::dontSendNotification);
@@ -242,8 +283,140 @@ SynthEditor::SynthEditor (ProjectDocument& documentToUse, AudioEngine& audioToUs
     setupOutSlider (resonanceSlider, resonanceLabel, NI_TXT ("滤波共振"), 0.1, 20.0, 0.01, false, {});
     setupOutSlider (transposeSlider, transposeLabel, NI_TXT ("移调"), -24.0, 24.0, 1.0, false,
                     NI_TXT (" 半音"));
-    setupOutSlider (feedbackSlider, feedbackLabel, NI_TXT ("反馈（运算器 6）"), 0.0, 7.0, 1.0,
+    setupOutSlider (feedbackSlider, feedbackLabel, NI_TXT ("反馈（算法指定运算器）"), 0.0, 7.0, 1.0,
                     false, {});
+
+    // ---- extras screen: fixed frequency, keyboard scaling, AMS, pitch EG ----
+    addChildComponent (modeLabel);
+    modeLabel.setText (NI_TXT ("振荡模式"), juce::dontSendNotification);
+    modeLabel.setFont (theme::font (10.5f));
+    modeLabel.setColour (juce::Label::textColourId, theme::dimText);
+
+    auto setupModeButton = [this] (juce::TextButton& button, const juce::String& text,
+                                   FmOscMode mode)
+    {
+        addChildComponent (button);
+        button.setButtonText (text);
+        button.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
+        button.onClick = [this, mode]
+        {
+            if (updating)
+                return;
+
+            if (auto* track = currentTrack())
+            {
+                beginParamEdit (NI_TXT ("振荡模式"));
+                track->synth.patch.ops[(size_t) juce::jlimit (0, kFmOperators - 1, selectedOperator)]
+                    .mode = mode;
+                pushParams (track->synth);
+                refresh();
+            }
+        };
+    };
+
+    setupModeButton (ratioModeButton, NI_TXT ("比率"), FmOscMode::ratio);
+    setupModeButton (fixedModeButton, NI_TXT ("固定"), FmOscMode::fixed);
+
+    auto setupExtraSlider = [this] (juce::Slider& slider, juce::Label& label,
+                                    const juce::String& text, double minimum, double maximum,
+                                    double interval, const juce::String& suffix)
+    {
+        addChildComponent (label);
+        label.setText (text, juce::dontSendNotification);
+        label.setFont (theme::font (10.5f));
+        label.setColour (juce::Label::textColourId, theme::dimText);
+
+        addChildComponent (slider);
+        slider.setSliderStyle (juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 56, 18);
+        slider.setRange (minimum, maximum, interval);
+        slider.setTextValueSuffix (suffix);
+        slider.onDragStart = [this] { beginParamEdit (NI_TXT ("调整运算器细节")); };
+        slider.onValueChange = [this] { pushCurrentParamsToPreview(); };
+    };
+
+    setupExtraSlider (fixedHzSlider, fixedHzLabel, NI_TXT ("固定频率"), 1.0, 10000.0, 1.0, " Hz");
+    fixedHzSlider.setSkewFactorFromMidPoint (400.0);
+    setupExtraSlider (amSensSlider, amSensLabel, NI_TXT ("AM 灵敏度"), 0.0, 3.0, 1.0, {});
+    setupExtraSlider (breakPointSlider, breakPointLabel, NI_TXT ("断点（MIDI）"), 0.0, 127.0, 1.0, {});
+    setupExtraSlider (leftDepthSlider, leftDepthLabel, NI_TXT ("左深度"), 0.0, 99.0, 1.0, {});
+    setupExtraSlider (rightDepthSlider, rightDepthLabel, NI_TXT ("右深度"), 0.0, 99.0, 1.0, {});
+
+    auto setupCurveButtons = [this] (std::array<juce::TextButton, 4>& buttons,
+                                     juce::Label& label, const juce::String& text, bool leftSide)
+    {
+        addChildComponent (label);
+        label.setText (text, juce::dontSendNotification);
+        label.setFont (theme::font (10.5f));
+        label.setColour (juce::Label::textColourId, theme::dimText);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            auto& button = buttons[(size_t) i];
+            addChildComponent (button);
+            button.setButtonText (scaleCurveNames()[i]);
+            button.setColour (juce::TextButton::buttonOnColourId, theme::accentDim);
+            button.onClick = [this, i, leftSide]
+            {
+                if (updating)
+                    return;
+
+                if (auto* track = currentTrack())
+                {
+                    beginParamEdit (NI_TXT ("调整键盘缩放"));
+                    auto& op = track->synth.patch.ops[(size_t) juce::jlimit (0, kFmOperators - 1,
+                                                                            selectedOperator)];
+
+                    if (leftSide)
+                        op.leftCurve = (FmScaleCurve) i;
+                    else
+                        op.rightCurve = (FmScaleCurve) i;
+
+                    pushParams (track->synth);
+                    refresh();
+                }
+            };
+        }
+    };
+
+    setupCurveButtons (leftCurveButtons, leftCurveLabel, NI_TXT ("左曲线"), true);
+    setupCurveButtons (rightCurveButtons, rightCurveLabel, NI_TXT ("右曲线"), false);
+
+    addChildComponent (pitchEgLabel);
+    pitchEgLabel.setText (NI_TXT ("音高包络（50 = 原音高）"), juce::dontSendNotification);
+    pitchEgLabel.setFont (theme::font (11.0f));
+    pitchEgLabel.setColour (juce::Label::textColourId, theme::dimText);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        auto& rate = pitchRateSliders[(size_t) i];
+        addChildComponent (rate);
+        rate.setSliderStyle (juce::Slider::LinearHorizontal);
+        rate.setTextBoxStyle (juce::Slider::TextBoxRight, false, 40, 18);
+        rate.setRange (0.0, 99.0, 1.0);
+        rate.onDragStart = [this] { beginParamEdit (NI_TXT ("调整音高包络")); };
+        rate.onValueChange = [this] { pushCurrentParamsToPreview(); };
+
+        auto& level = pitchLevelSliders[(size_t) i];
+        addChildComponent (level);
+        level.setSliderStyle (juce::Slider::LinearHorizontal);
+        level.setTextBoxStyle (juce::Slider::TextBoxRight, false, 40, 18);
+        level.setRange (0.0, 99.0, 1.0);
+        level.onDragStart = [this] { beginParamEdit (NI_TXT ("调整音高包络")); };
+        level.onValueChange = [this] { pushCurrentParamsToPreview(); };
+
+        addChildComponent (pitchEgValueLabels[(size_t) i]);
+        pitchEgValueLabels[(size_t) i].setText ("R" + juce::String (i + 1),
+                                                juce::dontSendNotification);
+        pitchEgValueLabels[(size_t) i].setFont (theme::font (10.0f));
+        pitchEgValueLabels[(size_t) i].setColour (juce::Label::textColourId, theme::dimText);
+
+        addChildComponent (pitchEgValueLabels[(size_t) (i + 4)]);
+        pitchEgValueLabels[(size_t) (i + 4)].setText ("L" + juce::String (i + 1),
+                                                      juce::dontSendNotification);
+        pitchEgValueLabels[(size_t) (i + 4)].setFont (theme::font (10.0f));
+        pitchEgValueLabels[(size_t) (i + 4)].setColour (juce::Label::textColourId, theme::dimText);
+    }
 
     // Always visible: the keyboard is the one control every screen needs.
     addAndMakeVisible (keyboard);
@@ -324,10 +497,10 @@ void SynthEditor::updateControlsFromTrack()
     diagram.setPatch (patch);
     diagram.setHighlightedOperator (selectedOperator);
 
-    for (int i = 0; i < kFmAlgorithmCount; ++i)
+    for (int i = 0; i < (int) algorithmCells.size(); ++i)
     {
         algorithmCells[(size_t) i]->setPatch (patch);
-        algorithmCells[(size_t) i]->setSelected (patch.algorithm == i + 1);
+        algorithmCells[(size_t) i]->setSelected (patch.algorithm == algorithmForCell (i));
     }
 
     const auto& op = patch.ops[(size_t) juce::jlimit (0, kFmOperators - 1, selectedOperator)];
@@ -352,6 +525,29 @@ void SynthEditor::updateControlsFromTrack()
     lfoDelaySlider.setValue ((double) patch.lfoDelay, juce::dontSendNotification);
     lfoPitchSlider.setValue ((double) patch.lfoPitchDepth, juce::dontSendNotification);
     lfoAmpSlider.setValue ((double) patch.lfoAmpDepth, juce::dontSendNotification);
+    lfoPitchModSensSlider.setValue ((double) patch.lfoPitchModSens, juce::dontSendNotification);
+    lfoSyncButton.setToggleState (patch.lfoSync, juce::dontSendNotification);
+
+    ratioModeButton.setToggleState (op.mode == FmOscMode::ratio, juce::dontSendNotification);
+    fixedModeButton.setToggleState (op.mode == FmOscMode::fixed, juce::dontSendNotification);
+    fixedHzSlider.setValue ((double) op.fixedHz, juce::dontSendNotification);
+    amSensSlider.setValue ((double) op.amSens, juce::dontSendNotification);
+    breakPointSlider.setValue ((double) op.breakPoint, juce::dontSendNotification);
+    leftDepthSlider.setValue ((double) op.leftDepth, juce::dontSendNotification);
+    rightDepthSlider.setValue ((double) op.rightDepth, juce::dontSendNotification);
+    fixedHzSlider.setEnabled (op.mode == FmOscMode::fixed);
+
+    for (int i = 0; i < 4; ++i)
+    {
+        leftCurveButtons[(size_t) i].setToggleState ((int) op.leftCurve == i,
+                                                     juce::dontSendNotification);
+        rightCurveButtons[(size_t) i].setToggleState ((int) op.rightCurve == i,
+                                                      juce::dontSendNotification);
+        pitchRateSliders[(size_t) i].setValue ((double) patch.pitchEg.rate[i],
+                                               juce::dontSendNotification);
+        pitchLevelSliders[(size_t) i].setValue ((double) patch.pitchEg.level[i],
+                                                juce::dontSendNotification);
+    }
 
     for (int i = 0; i < (int) lfoWaveButtons.size(); ++i)
     {
@@ -368,6 +564,7 @@ void SynthEditor::updateControlsFromTrack()
     feedbackSlider.setValue ((double) patch.feedback, juce::dontSendNotification);
 
     presetBar.refresh();
+    updateLibraryPage();
     updateBreadcrumb();
 }
 
@@ -379,7 +576,10 @@ void SynthEditor::updateBreadcrumb()
     switch (currentView)
     {
         case View::library:
-            breadcrumbLabel.setText (NI_TXT ("算法图库（点击一张图选择算法）"), juce::dontSendNotification);
+            breadcrumbLabel.setText (libraryPage == 0
+                                         ? NI_TXT ("算法图库 · HM 1-32（点击一张图选择算法）")
+                                         : NI_TXT ("算法图库 · DX7 33-64（点击一张图选择算法）"),
+                                     juce::dontSendNotification);
             break;
 
         case View::overview:
@@ -403,6 +603,14 @@ void SynthEditor::updateBreadcrumb()
             breadcrumbLabel.setText (NI_TXT ("输出与滤波"), juce::dontSendNotification);
             break;
 
+        case View::extras:
+            breadcrumbLabel.setText (NI_TXT ("算法 ") + juce::String (algorithm)
+                                         + " > " + NI_TXT ("运算器") + " > OP"
+                                         + juce::String (selectedOperator + 1)
+                                         + NI_TXT (" · 固定频率 / 键盘缩放 / 音高包络"),
+                                     juce::dontSendNotification);
+            break;
+
         default:
             break;
     }
@@ -417,9 +625,12 @@ void SynthEditor::setView (View view)
     const auto isDetail   = view == View::operatorDetail;
     const auto isLfo      = view == View::lfo;
     const auto isOutput   = view == View::output;
+    const auto isExtras   = view == View::extras;
 
     for (auto& cell : algorithmCells)
         cell->setVisible (isLibrary);
+
+    libraryPageButton.setVisible (isLibrary);
 
     diagram.setVisible (isOverview);
 
@@ -450,13 +661,40 @@ void SynthEditor::setView (View view)
 
     juce::Component* lfoControls[] = { &lfoRateSlider, &lfoDelaySlider, &lfoPitchSlider,
                                        &lfoAmpSlider, &lfoWaveLabel, &lfoRateLabel,
-                                       &lfoDelayLabel, &lfoPitchLabel, &lfoAmpLabel };
+                                       &lfoDelayLabel, &lfoPitchLabel, &lfoAmpLabel,
+                                       &lfoPitchModSensSlider, &lfoPitchModSensLabel,
+                                       &lfoSyncButton };
 
     for (auto* c : lfoControls)
         c->setVisible (isLfo);
 
     for (auto& button : lfoWaveButtons)
         button.setVisible (isLfo);
+
+    juce::Component* extrasControls[] = {
+        &modeLabel, &fixedHzLabel, &fixedHzSlider, &amSensLabel, &amSensSlider,
+        &breakPointLabel, &breakPointSlider, &leftCurveLabel, &rightCurveLabel,
+        &leftDepthLabel, &leftDepthSlider, &rightDepthLabel, &rightDepthSlider,
+        &ratioModeButton, &fixedModeButton, &pitchEgLabel
+    };
+
+    for (auto* c : extrasControls)
+        c->setVisible (isExtras);
+
+    for (auto& button : leftCurveButtons)
+        button.setVisible (isExtras);
+
+    for (auto& button : rightCurveButtons)
+        button.setVisible (isExtras);
+
+    for (auto& slider : pitchRateSliders)
+        slider.setVisible (isExtras);
+
+    for (auto& slider : pitchLevelSliders)
+        slider.setVisible (isExtras);
+
+    for (auto& label : pitchEgValueLabels)
+        label.setVisible (isExtras);
 
     juce::Component* outputControls[] = { &gainSlider, &cutoffSlider, &resonanceSlider,
                                           &transposeSlider, &gainLabel, &cutoffLabel,
@@ -468,6 +706,7 @@ void SynthEditor::setView (View view)
     backButton.setVisible (! isLibrary);
     lfoButton.setToggleState (isLfo, juce::dontSendNotification);
     outputButton.setToggleState (isOutput, juce::dontSendNotification);
+    extrasButton.setToggleState (isExtras, juce::dontSendNotification);
 
     // The feedback knob only belongs to operator 6's own page; resized() turns it
     // back on when that page really is showing OP6.
@@ -495,11 +734,34 @@ void SynthEditor::selectAlgorithm (int algorithm)
     document.beginEdit (NI_TXT ("切换算法"));
 
     if (auto* target = currentTrack())
+    {
         target->synth.patch.algorithm = juce::jlimit (1, kFmAlgorithmCount, algorithm);
+        libraryPage = target->synth.patch.algorithm > kFmDx7AlgorithmBase ? 1 : 0;
+    }
 
     pushParams (track->synth);
     setView (View::overview);
     refresh();
+}
+
+int SynthEditor::algorithmForCell (int cellIndex) const noexcept
+{
+    return 1 + libraryPage * kLibraryPageSize + juce::jlimit (0, kLibraryPageSize - 1, cellIndex);
+}
+
+void SynthEditor::updateLibraryPage()
+{
+    libraryPageButton.setButtonText (libraryPage == 0 ? NI_TXT ("HM 1-32") : NI_TXT ("DX7 33-64"));
+    libraryPageButton.setVisible (currentView == View::library);
+
+    for (int i = 0; i < (int) algorithmCells.size(); ++i)
+        algorithmCells[(size_t) i]->setAlgorithm (algorithmForCell (i));
+
+    if (currentView == View::library)
+        updateBreadcrumb();
+
+    resized();
+    repaint();
 }
 
 void SynthEditor::openOperator (int index)
@@ -598,6 +860,9 @@ bool SynthEditor::loadPresetById (int id)
 
     if (auto* target = currentTrack())
         pushParams (target->synth);
+
+    if (auto* target = currentTrack())
+        libraryPage = target->synth.patch.algorithm > kFmDx7AlgorithmBase ? 1 : 0;
 
     refresh();
     return true;
@@ -730,7 +995,24 @@ void SynthEditor::pushCurrentParamsToPreview()
     patch.lfoDelay      = (int) std::lround (lfoDelaySlider.getValue());
     patch.lfoPitchDepth = (int) std::lround (lfoPitchSlider.getValue());
     patch.lfoAmpDepth   = (int) std::lround (lfoAmpSlider.getValue());
+    patch.lfoPitchModSens = (int) std::lround (lfoPitchModSensSlider.getValue());
     patch.transpose     = (int) std::lround (transposeSlider.getValue());
+
+    if (fixedHzSlider.isVisible() || amSensSlider.isVisible())
+    {
+        auto& op = patch.ops[(size_t) juce::jlimit (0, kFmOperators - 1, selectedOperator)];
+        op.fixedHz    = (float) fixedHzSlider.getValue();
+        op.amSens     = (int) std::lround (amSensSlider.getValue());
+        op.breakPoint = (int) std::lround (breakPointSlider.getValue());
+        op.leftDepth  = (int) std::lround (leftDepthSlider.getValue());
+        op.rightDepth = (int) std::lround (rightDepthSlider.getValue());
+
+        for (int i = 0; i < 4; ++i)
+        {
+            patch.pitchEg.rate[i]  = (int) std::lround (pitchRateSliders[(size_t) i].getValue());
+            patch.pitchEg.level[i] = (int) std::lround (pitchLevelSliders[(size_t) i].getValue());
+        }
+    }
 
     track->synth.gain = (float) gainSlider.getValue();
     track->synth.filterCutoffHz = (float) cutoffSlider.getValue();
@@ -785,7 +1067,16 @@ void SynthEditor::resized()
     outputButton.setBounds (toolbar.removeFromRight (66).reduced (1, 0));
     toolbar.removeFromRight (4);
     lfoButton.setBounds (toolbar.removeFromRight (66).reduced (1, 0));
+    toolbar.removeFromRight (4);
+    extrasButton.setBounds (toolbar.removeFromRight (66).reduced (1, 0));
     toolbar.removeFromRight (6);
+
+    if (currentView == View::library)
+    {
+        libraryPageButton.setBounds (toolbar.removeFromLeft (86).reduced (1, 0));
+        toolbar.removeFromLeft (6);
+    }
+
     breadcrumbLabel.setBounds (toolbar);
 
     area.removeFromTop (kRowGap);
@@ -795,14 +1086,83 @@ void SynthEditor::resized()
 
     if (currentView == View::library)
     {
-        const auto rows = (kFmAlgorithmCount + kLibraryColumns - 1) / kLibraryColumns;
+        const auto rows = kLibraryPageSize / kLibraryColumns;
         const auto cellWidth = juce::jmax (20, area.getWidth() / kLibraryColumns);
         const auto cellHeight = juce::jmax (18, area.getHeight() / rows);
 
-        for (int i = 0; i < kFmAlgorithmCount; ++i)
+        for (int i = 0; i < (int) algorithmCells.size(); ++i)
             algorithmCells[(size_t) i]->setBounds (area.getX() + (i % kLibraryColumns) * cellWidth,
                                                    area.getY() + (i / kLibraryColumns) * cellHeight,
                                                    cellWidth - 4, cellHeight - 4);
+
+        return;
+    }
+
+    if (currentView == View::extras)
+    {
+        auto left = area.removeFromLeft (juce::jmax (250, area.getWidth() / 2));
+        auto right = area;
+        right.removeFromLeft (10);
+
+        auto placeExtra = [] (juce::Rectangle<int>& column, juce::Label& label,
+                              juce::Component& control)
+        {
+            auto row = column.removeFromTop (24);
+            label.setBounds (row.removeFromLeft (88));
+            control.setBounds (row);
+            column.removeFromTop (4);
+        };
+
+        auto modeRow = left.removeFromTop (26);
+        modeLabel.setBounds (modeRow.removeFromLeft (88));
+        ratioModeButton.setBounds (modeRow.removeFromLeft (74).reduced (1, 1));
+        modeRow.removeFromLeft (4);
+        fixedModeButton.setBounds (modeRow.removeFromLeft (74).reduced (1, 1));
+        left.removeFromTop (4);
+
+        placeExtra (left, fixedHzLabel, fixedHzSlider);
+        placeExtra (left, amSensLabel, amSensSlider);
+        placeExtra (left, breakPointLabel, breakPointSlider);
+
+        auto leftCurveRow = left.removeFromTop (24);
+        leftCurveLabel.setBounds (leftCurveRow.removeFromLeft (88));
+
+        for (auto& button : leftCurveButtons)
+            button.setBounds (leftCurveRow.removeFromLeft (58).reduced (1, 1));
+
+        left.removeFromTop (4);
+
+        auto rightCurveRow = left.removeFromTop (24);
+        rightCurveLabel.setBounds (rightCurveRow.removeFromLeft (88));
+
+        for (auto& button : rightCurveButtons)
+            button.setBounds (rightCurveRow.removeFromLeft (58).reduced (1, 1));
+
+        left.removeFromTop (4);
+
+        placeExtra (left, leftDepthLabel, leftDepthSlider);
+        placeExtra (left, rightDepthLabel, rightDepthSlider);
+
+        pitchEgLabel.setBounds (right.removeFromTop (18));
+        right.removeFromTop (2);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            auto row = right.removeFromTop (24);
+            pitchEgValueLabels[(size_t) i].setBounds (row.removeFromLeft (22));
+            pitchRateSliders[(size_t) i].setBounds (row);
+            right.removeFromTop (2);
+        }
+
+        right.removeFromTop (4);
+
+        for (int i = 0; i < 4; ++i)
+        {
+            auto row = right.removeFromTop (24);
+            pitchEgValueLabels[(size_t) (i + 4)].setBounds (row.removeFromLeft (22));
+            pitchLevelSliders[(size_t) i].setBounds (row);
+            right.removeFromTop (2);
+        }
 
         return;
     }
@@ -899,6 +1259,10 @@ void SynthEditor::resized()
         placeSlider (left, lfoDelayLabel, lfoDelaySlider);
         placeSlider (left, lfoPitchLabel, lfoPitchSlider);
         placeSlider (left, lfoAmpLabel, lfoAmpSlider);
+        placeSlider (left, lfoPitchModSensLabel, lfoPitchModSensSlider);
+
+        left.removeFromTop (4);
+        lfoSyncButton.setBounds (left.removeFromTop (26).removeFromLeft (140));
 
         right.removeFromLeft (10);
         lfoWaveLabel.setBounds (right.removeFromTop (20));
@@ -907,7 +1271,7 @@ void SynthEditor::resized()
         auto waveRow = right.removeFromTop (26);
 
         for (auto& button : lfoWaveButtons)
-            button.setBounds (waveRow.removeFromLeft (74).reduced (1, 1));
+            button.setBounds (waveRow.removeFromLeft (58).reduced (1, 1));
 
         return;
     }
@@ -932,8 +1296,25 @@ void SynthEditor::resized()
 //==============================================================================
 void SynthEditor::setViewForTest (int view)
 {
-    setView ((View) juce::jlimit (0, 4, view));
+    setView ((View) juce::jlimit (0, 5, view));
     refresh();
+}
+
+void SynthEditor::setLibraryPageForTest (int page)
+{
+    libraryPage = juce::jlimit (0, 1, page);
+    updateLibraryPage();
+}
+
+void SynthEditor::setOscModeForTest (bool fixed)
+{
+    if (auto* track = currentTrack())
+    {
+        track->synth.patch.ops[(size_t) juce::jlimit (0, kFmOperators - 1, selectedOperator)].mode
+            = fixed ? FmOscMode::fixed : FmOscMode::ratio;
+        pushParams (track->synth);
+        refresh();
+    }
 }
 
 void SynthEditor::selectAlgorithmForTest (int algorithm)
@@ -1033,6 +1414,19 @@ juce::Rectangle<int> SynthEditor::getControlBoundsForTest (int which) const
         case 6: return keyboard.getBounds();
         case 7: return backButton.getBounds();
         case 8: return diagram.getBounds();
+        case 9: return ratioModeButton.getBounds();
+        case 10: return fixedHzSlider.getBounds();
+        case 11: return amSensSlider.getBounds();
+        case 12: return breakPointSlider.getBounds();
+        case 13: return leftDepthSlider.getBounds();
+        case 14: return rightDepthSlider.getBounds();
+        case 15: return pitchRateSliders[0].getBounds();
+        case 16: return pitchLevelSliders[0].getBounds();
+        case 17: return lfoSyncButton.getBounds();
+        case 18: return lfoPitchModSensSlider.getBounds();
+        case 19: return leftCurveButtons[0].getBounds();
+        case 20: return rightCurveButtons[0].getBounds();
+        case 21: return libraryPageButton.getBounds();
         default: break;
     }
 

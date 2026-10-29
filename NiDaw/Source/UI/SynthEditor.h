@@ -43,11 +43,12 @@ class SynthEditor : public juce::Component,
 public:
     enum class View
     {
-        library = 0,       // the 32 algorithm pictures
+        library = 0,       // the algorithm pictures (two pages: HM 1-32, DX7 33-64)
         overview,          // the chosen algorithm, large
         operatorDetail,    // one operator's envelope and sliders
         lfo,
-        output
+        output,
+        extras             // fixed frequency, keyboard scaling, AMS, pitch EG
     };
 
     SynthEditor (ProjectDocument& document, AudioEngine& audioEngine, PresetStore& presets);
@@ -71,6 +72,9 @@ public:
     int  getOperatorForTest() const noexcept { return selectedOperator; }
     void setRateForTest (int index, int value);
     void toggleOperatorForTest (int index);
+    void setLibraryPageForTest (int page);
+    int  getLibraryPageForTest() const noexcept { return libraryPage; }
+    void setOscModeForTest (bool fixed);
     juce::Rectangle<int> getControlBoundsForTest (int which) const;
     juce::Rectangle<int> getAlgorithmCellBoundsForTest (int index) const;
     /** The operator box **inside** a library thumbnail, in that cell's own
@@ -109,6 +113,8 @@ private:
     void selectAlgorithm (int algorithm);     // library click
     void openOperator (int index);            // overview click
     void setOperatorEnabled (int index, bool enabled);
+    int  algorithmForCell (int cellIndex) const noexcept;
+    void updateLibraryPage();
 
     // ---- presets ----------------------------------------------------------
     std::vector<PresetBar::Entry> buildPresetEntries() const;
@@ -127,11 +133,13 @@ private:
     juce::Label titleLabel;
     PresetBar presetBar { NI_TXT ("内置") };
 
-    juce::TextButton backButton, lfoButton, outputButton;
+    juce::TextButton backButton, lfoButton, outputButton, extrasButton, libraryPageButton;
     juce::Label breadcrumbLabel;
     View currentView = View::library;
 
     // ---- algorithm library ----
+    /** 0 shows algorithms 1..32, 1 shows 33..64 (the DX7 bank). */
+    int libraryPage = 0;
     std::vector<std::unique_ptr<AlgorithmDiagram>> algorithmCells;
 
     // ---- operator overview ----
@@ -152,8 +160,25 @@ private:
 
     // ---- LFO screen ----
     juce::Label lfoRateLabel, lfoDelayLabel, lfoWaveLabel, lfoPitchLabel, lfoAmpLabel;
+    juce::Label lfoPitchModSensLabel;
     juce::Slider lfoRateSlider, lfoDelaySlider, lfoPitchSlider, lfoAmpSlider;
-    std::array<juce::TextButton, 5> lfoWaveButtons;
+    juce::Slider lfoPitchModSensSlider;
+    juce::TextButton lfoSyncButton;
+    std::array<juce::TextButton, 6> lfoWaveButtons;
+
+    // ---- extras screen: fixed frequency, keyboard scaling, AMS, pitch EG ----
+    juce::Label modeLabel, fixedHzLabel, amSensLabel, breakPointLabel;
+    juce::Label leftCurveLabel, rightCurveLabel, leftDepthLabel, rightDepthLabel;
+    juce::TextButton ratioModeButton, fixedModeButton;
+    juce::Slider fixedHzSlider, amSensSlider, breakPointSlider;
+    juce::Slider leftDepthSlider, rightDepthSlider;
+    std::array<juce::TextButton, 4> leftCurveButtons;
+    std::array<juce::TextButton, 4> rightCurveButtons;
+
+    juce::Label pitchEgLabel;
+    std::array<juce::Label, 8> pitchEgValueLabels;    // R1..R4 then L1..L4
+    std::array<juce::Slider, 4> pitchRateSliders;
+    std::array<juce::Slider, 4> pitchLevelSliders;
 
     // ---- output screen ----
     juce::Label gainLabel, cutoffLabel, resonanceLabel, transposeLabel, feedbackLabel;

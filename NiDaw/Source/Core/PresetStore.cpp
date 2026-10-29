@@ -490,7 +490,21 @@ juce::var synthParamsToVar (const SynthParams& s)
     o->setProperty ("lfoWaveform", patch.lfoWaveform);
     o->setProperty ("lfoPitchDepth", patch.lfoPitchDepth);
     o->setProperty ("lfoAmpDepth", patch.lfoAmpDepth);
+    o->setProperty ("lfoPitchModSens", patch.lfoPitchModSens);
+    o->setProperty ("lfoSync", patch.lfoSync);
     o->setProperty ("transpose", patch.transpose);
+    o->setProperty ("classic", patch.classicEngine);
+
+    juce::Array<juce::var> pitchRates, pitchLevels;
+
+    for (int i = 0; i < 4; ++i)
+    {
+        pitchRates.add (patch.pitchEg.rate[i]);
+        pitchLevels.add (patch.pitchEg.level[i]);
+    }
+
+    o->setProperty ("pitchEgRate", pitchRates);
+    o->setProperty ("pitchEgLevel", pitchLevels);
 
     juce::Array<juce::var> operators;
 
@@ -498,11 +512,19 @@ juce::var synthParamsToVar (const SynthParams& s)
     {
         auto* po = new juce::DynamicObject();
         po->setProperty ("ratio", op.ratio);
+        po->setProperty ("mode", (int) op.mode);
+        po->setProperty ("fixedHz", op.fixedHz);
         po->setProperty ("detune", op.detune);
         po->setProperty ("outputLevel", op.outputLevel);
         po->setProperty ("velSens", op.velSens);
         po->setProperty ("rateScale", op.rateScale);
         po->setProperty ("enabled", op.enabled);
+        po->setProperty ("breakPoint", op.breakPoint);
+        po->setProperty ("leftCurve", (int) op.leftCurve);
+        po->setProperty ("rightCurve", (int) op.rightCurve);
+        po->setProperty ("leftDepth", op.leftDepth);
+        po->setProperty ("rightDepth", op.rightDepth);
+        po->setProperty ("amSens", op.amSens);
 
         juce::Array<juce::var> rates, levels;
 
@@ -585,13 +607,27 @@ SynthParams synthParamsFromVar (const juce::var& v)
     patch.feedback    = juce::jlimit (0, 7, readInt (v, "feedback", 0));
     patch.lfoRate     = juce::jlimit (0, 99, readInt (v, "lfoRate", 35));
     patch.lfoDelay    = juce::jlimit (0, 99, readInt (v, "lfoDelay", 0));
-    patch.lfoWaveform = juce::jlimit (0, 4, readInt (v, "lfoWaveform", 0));
+    patch.lfoWaveform = juce::jlimit (0, 5, readInt (v, "lfoWaveform", 0));
     patch.lfoPitchDepth = juce::jlimit (0, 99, readInt (v, "lfoPitchDepth", 0));
     patch.lfoAmpDepth   = juce::jlimit (0, 99, readInt (v, "lfoAmpDepth", 0));
+    patch.lfoPitchModSens = juce::jlimit (0, 7, readInt (v, "lfoPitchModSens", 0));
+    patch.lfoSync       = readBool (v, "lfoSync", false);
     patch.transpose     = juce::jlimit (-24, 24, readInt (v, "transpose", 0));
+
+    // Files written before the DX7 work have no `classic` flag: they keep the
+    // old curves so their sound does not change under them.
+    patch.classicEngine = readBool (v, "classic", false);
 
     if (object != nullptr)
     {
+        if (const auto* rateArray = object->getProperty ("pitchEgRate").getArray())
+            for (int r = 0; r < (int) rateArray->size() && r < 4; ++r)
+                patch.pitchEg.rate[r] = juce::jlimit (0, 99, (int) (*rateArray)[r]);
+
+        if (const auto* levelArray = object->getProperty ("pitchEgLevel").getArray())
+            for (int l = 0; l < (int) levelArray->size() && l < 4; ++l)
+                patch.pitchEg.level[l] = juce::jlimit (0, 99, (int) (*levelArray)[l]);
+
         if (const auto* opArray = object->getProperty ("operators").getArray())
         {
             for (int i = 0; i < (int) opArray->size() && i < kFmOperators; ++i)
@@ -600,10 +636,18 @@ SynthParams synthParamsFromVar (const juce::var& v)
                 auto& op = patch.ops[(size_t) i];
 
                 op.ratio       = (float) juce::jlimit (0.25, 32.0, readDouble (ov, "ratio", 1.0));
+                op.mode        = readInt (ov, "mode", 0) == 1 ? FmOscMode::fixed : FmOscMode::ratio;
+                op.fixedHz     = (float) juce::jlimit (1.0, 10000.0, readDouble (ov, "fixedHz", 1000.0));
                 op.detune      = (float) juce::jlimit (-1.0, 1.0, readDouble (ov, "detune", 0.0));
                 op.outputLevel = juce::jlimit (0, 99, readInt (ov, "outputLevel", 99));
                 op.velSens     = juce::jlimit (0, 7, readInt (ov, "velSens", 0));
                 op.rateScale   = juce::jlimit (0, 7, readInt (ov, "rateScale", 0));
+                op.breakPoint  = juce::jlimit (0, 127, readInt (ov, "breakPoint", 48));
+                op.leftCurve   = (FmScaleCurve) juce::jlimit (0, 3, readInt (ov, "leftCurve", 0));
+                op.rightCurve  = (FmScaleCurve) juce::jlimit (0, 3, readInt (ov, "rightCurve", 0));
+                op.leftDepth   = juce::jlimit (0, 99, readInt (ov, "leftDepth", 0));
+                op.rightDepth  = juce::jlimit (0, 99, readInt (ov, "rightDepth", 0));
+                op.amSens      = juce::jlimit (0, 3, readInt (ov, "amSens", 0));
                 // A file written before operator switches existed keeps every
                 // operator on, so its sound is untouched.
                 op.enabled     = readBool (ov, "enabled", true);

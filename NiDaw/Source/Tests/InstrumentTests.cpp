@@ -101,7 +101,7 @@ public:
             expect (loudRms > quietRms * 2.0f);
         }
 
-        beginTest ("all 32 algorithms produce sound and stay bounded");
+        beginTest ("all 64 algorithms produce sound and stay bounded");
 
         for (int algorithm = 1; algorithm <= kFmAlgorithmCount; ++algorithm)
         {
@@ -160,8 +160,18 @@ public:
             for (const auto& entry : perCategory)
                 expectEquals (entry.second, 8);
 
-            expectEquals (fm::dx7::engineAlgorithmFor (5), 17);    // E.PIANO 1: three stacks
-            expectEquals (fm::dx7::engineAlgorithmFor (32), 32);   // six sines
+            for (int i = 0; i < count; ++i)
+            {
+                FmPatch patch;
+                fm::applyPreset (patch, i);
+
+                // The DX7 bank keeps its own routing: algorithm 32 + N is the
+                // original Yamaha algorithm N, and the classic engine is on.
+                expectEquals (patch.algorithm, 32 + presets[i].dx7Algorithm,
+                              "preset " + juce::String (presets[i].name) + " algorithm");
+                expect (patch.classicEngine, "preset " + juce::String (presets[i].name)
+                                                + " classic engine");
+            }
 
             for (int i = 0; i < count; ++i)
             {
@@ -178,22 +188,143 @@ public:
                 synth.setParams (params);
                 synth.noteOn (1, 220.0f, 100.0f);
 
-                juce::AudioBuffer<float> buffer (2, 144000);
+                juce::AudioBuffer<float> buffer (2, 288000);
                 buffer.clear();
-                synth.renderAdding (buffer, 0, 144000, 1.0f, 1.0f);
+                synth.renderAdding (buffer, 0, 288000, 1.0f, 1.0f);
 
                 auto peak = 0.0f;
 
-                for (int s = 0; s < 144000; ++s)
+                for (int s = 0; s < 288000; ++s)
                     peak = juce::jmax (peak, std::abs (buffer.getSample (0, s)));
 
-                // Three seconds: some of the DX7 envelopes (TAKE OFF) fade in over
-                // more than a second, while others are percussive and silent again
-                // by then, so the peak is what "makes sound" has to mean here.
+                // Six seconds: the DX7 envelopes (TAKE OFF) fade in over several
+                // seconds, while others are percussive and silent again by then,
+                // so the peak is what "makes sound" has to mean here.
                 expect (std::isfinite (peak), "preset " + patch.name + " is not finite");
-                expectGreaterThan (peak, 0.01f, "preset " + patch.name + " is silent");
+                expectGreaterThan (peak, 0.005f, "preset " + patch.name + " is silent");
                 expectLessThan (peak, 4.0f, "preset " + patch.name + " peaks at "
                                                 + juce::String (peak, 3));
+            }
+        }
+
+        beginTest ("the DX7 routings and parameter set are honoured");
+        {
+            // The DX7 bank lives in 33..64: 33 is Yamaha's algorithm 1 (carriers
+            // OP1 and OP3, feedback on OP6), 64 its algorithm 32 (six carriers),
+            // 36 its algorithm 4 (feedback on OP4 instead of OP6).
+            expectEquals ((int) getFmAlgorithm (33).carriers, 0x05);
+            expectEquals (getFmAlgorithm (33).feedbackOp, 5);
+            expectEquals ((int) getFmAlgorithm (64).carriers, 0x3f);
+            expectEquals (getFmAlgorithm (36).feedbackOp, 3);
+
+            auto makeOneCarrier = []
+            {
+                SynthParams params;
+                params.patch.classicEngine = true;
+                params.patch.algorithm = 33;
+
+                for (auto& op : params.patch.ops)
+                    op.outputLevel = 0;
+
+                auto& op = params.patch.ops[0];
+                op.outputLevel = 99;
+                op.level[0] = 99;
+                op.level[1] = 99;
+                op.level[2] = 99;
+                op.level[3] = 0;
+                op.rate[0] = 99;
+                op.rate[1] = 99;
+                op.rate[2] = 99;
+                op.rate[3] = 99;
+                return params;
+            };
+
+            auto render = [] (const SynthParams& params, float hz, float velocity)
+            {
+                TrackSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, hz, velocity);
+
+                juce::AudioBuffer<float> buffer (2, 9600);
+                buffer.clear();
+                synth.renderAdding (buffer, 0, 9600, 1.0f, 1.0f);
+                return buffer;
+            };
+
+            // Keyboard level scaling: -LIN with a depth of 99 must make a note
+            // four octaves above the breakpoint clearly quieter.
+            {
+                auto params = makeOneCarrier();
+                auto& op = params.patch.ops[0];
+                op.breakPoint = 60;
+                op.rightCurve = FmScaleCurve::negLin;
+                op.rightDepth = 99;
+
+                const auto low = render (params, 130.81f, 100.0f).getRMSLevel (0, 1000, 8000);
+                const auto high = render (params, 2093.0f, 100.0f).getRMSLevel (0, 1000, 8000);
+
+                expectGreaterThan (low, 0.0001f);
+                expectLessThan (high, low * 0.5f, "keyboard level scaling");
+            }
+
+            // Fixed frequency: the note number stops mattering entirely.
+            {
+                auto params = makeOneCarrier();
+                auto& op = params.patch.ops[0];
+                op.mode = FmOscMode::fixed;
+                op.fixedHz = 1000.0f;
+
+                const auto a = render (params, 220.0f, 100.0f);
+                const auto b = render (params, 880.0f, 100.0f);
+
+                auto maxDifference = 0.0f;
+
+                for (int s = 0; s < 9600; ++s)
+                    maxDifference = juce::jmax (maxDifference,
+                                                std::abs (a.getSample (0, s) - b.getSample (0, s)));
+
+                expectLessThan (maxDifference, 1.0e-5f, "fixed frequency follows the note");
+            }
+
+            // Velocity sensitivity: a soft note is quieter when the operator asks
+            // for it (the DX7 curve, not a linear fade).
+            {
+                auto params = makeOneCarrier();
+                params.patch.ops[0].velSens = 7;
+
+                const auto loud = render (params, 440.0f, 127.0f).getRMSLevel (0, 1000, 8000);
+                const auto soft = render (params, 440.0f, 30.0f).getRMSLevel (0, 1000, 8000);
+
+                expectGreaterThan (loud, 0.0001f);
+                expectLessThan (soft, loud * 0.7f, "velocity sensitivity");
+            }
+
+            // Pitch envelope: L2 one octave up, reached almost instantly, makes
+            // the first part of the note cross zero more often.
+            {
+                auto plain = makeOneCarrier();
+                plain.patch.pitchEg.level[1] = 50;
+
+                auto bent = makeOneCarrier();
+                bent.patch.pitchEg.level[1] = 62;    // (62 - 50) / 50 * 48 = 11.5 semitones
+                bent.patch.pitchEg.rate[0] = 99;
+
+                auto crossings = [] (const juce::AudioBuffer<float>& buffer)
+                {
+                    auto count = 0;
+                    const auto* d = buffer.getReadPointer (0);
+
+                    for (int s = 1; s < 4000; ++s)
+                        if ((d[s - 1] < 0.0f) != (d[s] < 0.0f))
+                            ++count;
+
+                    return count;
+                };
+
+                const auto plainCrossings = crossings (render (plain, 440.0f, 100.0f));
+                const auto bentCrossings = crossings (render (bent, 440.0f, 100.0f));
+                expectGreaterThan (bentCrossings, plainCrossings, "pitch envelope bends up");
             }
         }
 

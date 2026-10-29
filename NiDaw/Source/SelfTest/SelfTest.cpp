@@ -805,25 +805,25 @@ namespace selftest
             check (track != nullptr && track->synth.patch.name == NI_TXT ("电钢琴 1"),
                    "picking a preset names the patch (got '"
                        + (track != nullptr ? track->synth.patch.name : juce::String()) + "')");
-            check (track != nullptr && track->synth.patch.algorithm == 17,
-                   "the electric piano brings its own algorithm (got "
+            check (track != nullptr && track->synth.patch.algorithm == 37,
+                   "the electric piano brings its own DX7 algorithm (got "
                        + juce::String (track != nullptr ? track->synth.patch.algorithm : 0) + ")");
             check (editor.getSelectedPresetIndex() == pianoIndex,
                    "the preset box follows the patch");
 
-            // ---- level one: the library of 32 diagrams ------------------------
+            // ---- level one: the library, 32 diagrams per page ------------------
             editor.setViewForTest (0);
             pump();
 
             auto cellsWithSize = 0;
 
-            for (int i = 0; i < kFmAlgorithmCount; ++i)
+            for (int i = 0; i < 32; ++i)
                 if (editor.getAlgorithmCellBoundsForTest (i).getWidth() > 20
                     && editor.getAlgorithmCellBoundsForTest (i).getHeight() > 10)
                     ++cellsWithSize;
 
-            check (cellsWithSize == kFmAlgorithmCount,
-                   "all 32 algorithm pictures are laid out (got "
+            check (cellsWithSize == 32,
+                   "the first page lays out 32 algorithm pictures (got "
                        + juce::String (cellsWithSize) + ")");
 
             // ... and each one really draws its boxes. The pictures are built
@@ -831,7 +831,7 @@ namespace selftest
             // "the library renders as 32 empty squares".
             auto cellsWithBoxes = 0;
 
-            for (int i = 0; i < kFmAlgorithmCount; ++i)
+            for (int i = 0; i < 32; ++i)
             {
                 auto hasBox = false;
 
@@ -843,7 +843,7 @@ namespace selftest
                     ++cellsWithBoxes;
             }
 
-            check (cellsWithBoxes == kFmAlgorithmCount,
+            check (cellsWithBoxes == 32,
                    "every algorithm picture draws its operator boxes (got "
                        + juce::String (cellsWithBoxes) + ")");
 
@@ -861,6 +861,41 @@ namespace selftest
                    "clicking a picture sets the routing (got "
                        + juce::String (document.findTrack (trackId)->synth.patch.algorithm) + ")");
             check (editor.getViewForTest() == 1, "the click moved to the operator overview");
+
+            // ---- the second page: the 32 DX7 routings -------------------------
+            editor.setViewForTest (0);
+            editor.setLibraryPageForTest (1);
+            pump();
+
+            check (editor.getLibraryPageForTest() == 1, "the library has a DX7 page");
+
+            auto dx7CellsWithSize = 0;
+
+            for (int i = 0; i < 32; ++i)
+                if (editor.getAlgorithmCellBoundsForTest (i).getWidth() > 20
+                    && editor.getAlgorithmCellBoundsForTest (i).getHeight() > 10)
+                    ++dx7CellsWithSize;
+
+            check (dx7CellsWithSize == 32,
+                   "the DX7 page lays out 32 algorithm pictures (got "
+                       + juce::String (dx7CellsWithSize) + ")");
+
+            const auto dx7Image = snapshot (editor);
+            check (writeImage (dx7Image, outputDirectory.getChildFile ("20-fm-algorithms-dx7.png")),
+                   "FM DX7 algorithm library snapshot");
+
+            editor.selectAlgorithmForTest (33);
+            pump();
+
+            check (document.findTrack (trackId)->synth.patch.algorithm == 33,
+                   "picking a DX7 routing sets algorithm 33");
+            check (editor.getLibraryPageForTest() == 1,
+                   "picking a DX7 routing keeps the DX7 page");
+
+            // Back to a known HM routing for the operator tests below.
+            editor.selectAlgorithmForTest (17);
+            editor.setLibraryPageForTest (0);
+            pump();
 
             // ---- level two: the six operator boxes ----------------------------
             auto boxesWithSize = 0;
@@ -944,6 +979,45 @@ namespace selftest
             pump();
             check (writeImage (snapshot (editor), outputDirectory.getChildFile ("14-fm-output.png")),
                    "FM output screen snapshot");
+
+            check (editor.getControlBoundsForTest (17).getWidth() > 0
+                       && editor.getControlBoundsForTest (18).getWidth() > 0,
+                   "the LFO screen has the sync switch and pitch sensitivity");
+
+            // ---- the extras screen: fixed frequency, scaling, pitch EG --------
+            editor.setViewForTest (5);
+            pump();
+
+            auto extrasControls = 0;
+
+            for (int which = 9; which <= 16; ++which)
+                if (editor.getControlBoundsForTest (which).getWidth() > 0
+                    && editor.getControlBoundsForTest (which).getHeight() > 0)
+                    ++extrasControls;
+
+            for (int which = 19; which <= 20; ++which)
+                if (editor.getControlBoundsForTest (which).getWidth() > 0)
+                    ++extrasControls;
+
+            check (extrasControls == 10,
+                   "the extras screen lays out every DX7 control (got "
+                       + juce::String (extrasControls) + ")");
+            check (writeImage (snapshot (editor), outputDirectory.getChildFile ("21-fm-extras.png")),
+                   "FM extras screen snapshot");
+
+            editor.setOscModeForTest (true);
+            pump();
+
+            const auto selectedForMode = editor.getOperatorForTest();
+            check (document.findTrack (trackId)->synth.patch.ops[(size_t) selectedForMode].mode
+                       == FmOscMode::fixed,
+                   "the extras screen switches an operator to fixed frequency");
+
+            editor.setOscModeForTest (false);
+            pump();
+            check (document.findTrack (trackId)->synth.patch.ops[(size_t) selectedForMode].mode
+                       == FmOscMode::ratio,
+                   "the extras screen switches it back to ratio");
 
             // ---- the per-operator switch --------------------------------------
             editor.setViewForTest (1);

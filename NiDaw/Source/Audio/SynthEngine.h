@@ -117,9 +117,13 @@ struct FmAlgorithm
     juce::uint8 modulators[kFmOperators];
     juce::uint8 carriers;
     const char* diagram;
+    /** 0-based operator that feeds back into itself. Most DX7 algorithms put it
+        on OP6, but a few (2, 8, 10, 12, 15, 18, 20, 21, 27) do not. */
+    int feedbackOp = 5;
 };
 
-/** The algorithm routing, clamped to 1..32. */
+/** The algorithm routing, clamped to 1..64. 1..32 are HM's own routings,
+    33..64 the DX7 factory ones (index = 32 + Yamaha algorithm). */
 const FmAlgorithm& getFmAlgorithm (int index) noexcept;
 
 //==============================================================================
@@ -185,6 +189,18 @@ private:
 
         Operator ops[kFmOperators];
 
+        /** Keyboard level scaling + velocity offset per operator, in 0..99 level
+            units, worked out once per note. */
+        float opLevelOffset[kFmOperators] = { 0, 0, 0, 0, 0, 0 };
+
+        /** The DX7 pitch envelope (classic engine only). */
+        double pitchEnvelope   = 50.0;
+        double pitchStep       = 0.0;
+        double pitchRemaining  = 0.0;
+        int    pitchStage      = 0;
+        bool   pitchHolding    = false;
+        bool   pitchFinished   = false;
+
         double feedbackMemory = 0.0;
         double lfoPhase       = 0.0;
         double lfoDelayTime   = 0.0;
@@ -201,12 +217,16 @@ private:
     void startVoice (Voice& voice);
     /** Points an operator's envelope at the next segment (R1..R4). */
     void beginSegment (Voice& voice, int opIndex, int stage);
+    /** The same for the patch pitch envelope (classic engine). */
+    void beginPitchSegment (Voice& voice, int stage);
 
     std::array<Voice, kVoicesPerTrack> voices;
     SynthParams params;
     double sampleRate = 48000.0;
     juce::uint32 orderCounter = 0;
     juce::Random lfoRandom;
+    /** Classic engine with LFO key sync off: one phase shared by every voice. */
+    double globalLfoPhase = 0.0;
 };
 
 } // namespace nidaw

@@ -260,8 +260,41 @@ public:
             expectWithinAbsoluteError ((double) restored.filterCutoffHz, 1234.0, 1.0e-3);
         }
 
-        beginTest ("a project written before the switches existed loads with them all on");
+        beginTest ("the DX7 engine fields survive the round trip");
+        {
+            SynthParams params;
+            params.patch.classicEngine = true;
+            params.patch.algorithm = 40;
+            params.patch.lfoPitchModSens = 5;
+            params.patch.lfoSync = true;
+            params.patch.pitchEg.rate[1] = 12;
+            params.patch.pitchEg.level[2] = 70;
 
+            auto& op = params.patch.ops[3];
+            op.mode = FmOscMode::fixed;
+            op.fixedHz = 1234.0f;
+            op.breakPoint = 55;
+            op.leftCurve = FmScaleCurve::posExp;
+            op.rightCurve = FmScaleCurve::negExp;
+            op.leftDepth = 21;
+            op.rightDepth = 42;
+            op.amSens = 2;
+
+            const auto restored = synthParamsFromVar (synthParamsToVar (params));
+            expect (restored.patch == params.patch);
+
+            // A file from before this batch has no `classic` key: it loads as the
+            // legacy engine and keeps the algorithm number it was saved with.
+            auto* object = new juce::DynamicObject();
+            object->setProperty ("algorithm", 7);
+            object->setProperty ("operators", juce::Array<juce::var>());
+            const auto old = synthParamsFromVar (juce::var (object));
+
+            expect (! old.patch.classicEngine);
+            expectEquals (old.patch.algorithm, 7);
+        }
+
+        beginTest ("a project written before the switches existed loads with them all on");
         {
             Project project = makeDefaultProject();
             const auto trackId = addTrack (project, TrackKind::synth);

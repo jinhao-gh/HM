@@ -27,4 +27,22 @@ inline FmOperator withEnv (FmOperator o, int r1, int r2, int r3, int r4,
     return o;
 }
 
+/** The full DX7 operator: everything `op` sets plus fixed frequency, keyboard
+    level scaling and AM sensitivity. Used by the generated DX7 bank. */
+inline FmOperator withDx7Details (FmOperator o, FmOscMode mode, float fixedHz,
+                                  int breakPoint, FmScaleCurve leftCurve,
+                                  FmScaleCurve rightCurve, int leftDepth,
+                                  int rightDepth, int amSens)
+{
+    o.mode       = mode;
+    o.fixedHz    = fixedHz;
+    o.breakPoint = breakPoint;
+    o.leftCurve  = leftCurve;
+    o.rightCurve = rightCurve;
+    o.leftDepth  = leftDepth;
+    o.rightDepth = rightDepth;
+    o.amSens     = amSens;
+    return o;
+}
+
 } // namespace nidaw::fm

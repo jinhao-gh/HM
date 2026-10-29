@@ -14,34 +14,55 @@ namespace
     constexpr double kTwoPi = 6.283185307179586;
 
     /** Headroom trim so that sixteen simultaneous voices stay well clear of clipping. */
-    constexpr float kMasterTrim = 0.22f;
+    constexpr float kMasterTrimLegacy  = 0.22f;
+    constexpr float kMasterTrimClassic = 0.22f;
 
-    /** An operator at output level 99 shifts its target's phase by two cycles. */
-    constexpr double kModulationScale = 2.0;
+    /** An operator at output level 99 shifts its target's phase by this many cycles.
+        The classic engine's dB amplitudes top out at 1.0, so one cycle is already a
+        modulation index of 2*pi - the DX7's maximum; the legacy engine keeps two. */
+    constexpr double kModulationScaleLegacy  = 2.0;
+    constexpr double kModulationScaleClassic = 1.0;
 
-    /** How hard operator 6 feeds back into itself at feedback = 7. */
-    constexpr double kFeedbackScale = 0.35;
+    /** How hard the feedback operator feeds back into itself at feedback = 7. */
+    constexpr double kFeedbackScaleLegacy  = 0.35;
+    constexpr double kFeedbackScaleClassic = 1.0;
 
-    /** The LFO runs from about 0.07 Hz to about 21 Hz. */
+    /** The LFO runs from about 0.07 Hz to about 21 Hz in the legacy engine and
+        from 0.06 Hz to about 47 Hz in the classic one (the DX7's range). */
     constexpr double kLfoMinHz = 0.07;
     constexpr double kLfoRange = 300.0;
+    constexpr double kLfoMinHzClassic = 0.06;
+    constexpr double kLfoRangeClassic = 780.0;
+
+    /** The DX7 pitch envelope sweeps this far either side of level 50. */
+    constexpr double kPitchEgRangeSemitones = 48.0;
 
     inline double wrap01 (double x) noexcept
     {
         return x - std::floor (x);
     }
 
-    /** Output level 0..99 to amplitude 0..1, with finer steps near the top.
-        Takes a double so an envelope can be traced smoothly between whole steps. */
-    inline double levelToAmplitude (double level) noexcept
+    /** Legacy level 0..99 to amplitude 0..1, with finer steps near the top. */
+    inline double levelToAmplitudeLegacy (double level) noexcept
     {
         const auto n = juce::jlimit (0.0, 99.0, level) / 99.0;
         return n * n;
     }
 
-    inline double levelToAmplitude (int level) noexcept
+    /** DX7 level 0..99 to amplitude: 0.75 dB per step, 99 = 0 dB, 0 = silence. */
+    inline double levelToAmplitudeClassic (double level) noexcept
     {
-        return levelToAmplitude ((double) juce::jlimit (0, 99, level));
+        const auto l = juce::jlimit (0.0, 99.0, level);
+
+        if (l <= 0.0)
+            return 0.0;
+
+        return std::pow (10.0, (l - 99.0) * 0.75 / 20.0);
+    }
+
+    inline double levelToAmplitude (double level, bool classic) noexcept
+    {
+        return classic ? levelToAmplitudeClassic (level) : levelToAmplitudeLegacy (level);
     }
 
     inline double lfoHz (int rate) noexcept
@@ -50,13 +71,50 @@ namespace
         return kLfoMinHz * std::pow (kLfoRange, r);
     }
 
+    inline double lfoHzClassic (int rate) noexcept
+    {
+        const auto r = juce::jlimit (0, 99, rate) / 99.0;
+        return kLfoMinHzClassic * std::pow (kLfoRangeClassic, r);
+    }
+
+    /** The DX7 keyboard level scaling curves, as a fraction of the depth.
+        `distance` is in semitones away from the breakpoint, either sign. */
+    inline double keyScaleShape (FmScaleCurve curve, int distance) noexcept
+    {
+        const auto d = juce::jlimit (0, 96, std::abs (distance));
+        const auto t = d / 48.0;              // 1.0 at four octaves
+        const auto curved = std::pow (2.0, t) - 1.0;
+
+        switch (curve)
+        {
+            case FmScaleCurve::negLin: return -t;
+            case FmScaleCurve::negExp: return -curved;
+            case FmScaleCurve::posExp: return  curved;
+            case FmScaleCurve::posLin: return  t;
+        }
+
+        return 0.0;
+    }
+
+    /** Level offset in 0..99 units for one operator and one note. */
+    inline double keyScaleOffset (const FmOperator& op, int midiNote) noexcept
+    {
+        const auto distance = midiNote - op.breakPoint;
+        const auto curve = distance < 0 ? op.leftCurve : op.rightCurve;
+        const auto depth = distance < 0 ? op.leftDepth : op.rightDepth;
+
+        return keyScaleShape (curve, distance) * (depth / 99.0) * 99.0;
+    }
+
     constexpr juce::uint8 opBit (int index) noexcept { return (juce::uint8) (1u << index); }
 
-    /** The 32 routings.
+    /** The 64 routings.
 
         These follow the DX7 idiom - operators are numbered from the output
         upwards, an algorithm is a little forest of stacks, and operator 6 is the
-        one with feedback - but the set itself is written for this project.
+        one with feedback. 1..32 are HM's own set (unchanged, so old projects
+        keep their sound); 33..64 are the DX7's factory routings, used by the
+        imported voices and selectable in the library's second page.
     */
     const FmAlgorithm kAlgorithms[kFmAlgorithmCount] =
     {
@@ -92,6 +150,38 @@ namespace
         { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0x01 | 0x02 | 0x04 | 0x08, "4 sines" },
         { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0x01 | 0x02 | 0x04, "3 sines" },
         { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0x3f, "6 sines" },
+        { { 0x02, 0x00, 0x08, 0x10, 0x20, 0x00 }, 0x05, "DX7 1: 2-1 | 6-5-4-3", 5 },
+        { { 0x02, 0x00, 0x08, 0x10, 0x20, 0x00 }, 0x05, "DX7 2: 2-1 | 6-5-4-3", 1 },
+        { { 0x02, 0x04, 0x00, 0x10, 0x20, 0x00 }, 0x09, "DX7 3: 3-2-1 | 6-5-4", 5 },
+        { { 0x02, 0x04, 0x00, 0x10, 0x20, 0x00 }, 0x09, "DX7 4: 3-2-1 | 6-5-4", 3 },
+        { { 0x02, 0x00, 0x08, 0x00, 0x20, 0x00 }, 0x15, "DX7 5: 2-1 | 4-3 | 6-5", 5 },
+        { { 0x02, 0x00, 0x08, 0x00, 0x20, 0x00 }, 0x15, "DX7 6: 2-1 | 4-3 | 6-5", 4 },
+        { { 0x02, 0x00, 0x18, 0x00, 0x20, 0x00 }, 0x05, "DX7 7: 2-1 | (6-5+4)-3", 5 },
+        { { 0x02, 0x00, 0x18, 0x00, 0x20, 0x00 }, 0x05, "DX7 8: 2-1 | (6-5+4)-3", 3 },
+        { { 0x02, 0x00, 0x18, 0x00, 0x20, 0x00 }, 0x05, "DX7 9: 2-1 | (6-5+4)-3", 1 },
+        { { 0x02, 0x04, 0x00, 0x30, 0x00, 0x00 }, 0x09, "DX7 10: 3-2-1 | (6+5)-4", 2 },
+        { { 0x02, 0x04, 0x00, 0x30, 0x00, 0x00 }, 0x09, "DX7 11: 3-2-1 | (6+5)-4", 5 },
+        { { 0x02, 0x00, 0x38, 0x00, 0x00, 0x00 }, 0x05, "DX7 12: 2-1 | (6+5+4)-3", 1 },
+        { { 0x02, 0x00, 0x38, 0x00, 0x00, 0x00 }, 0x05, "DX7 13: 2-1 | (6+5+4)-3", 5 },
+        { { 0x02, 0x00, 0x08, 0x30, 0x00, 0x00 }, 0x05, "DX7 14: 2-1 | (6+5)-4-3", 5 },
+        { { 0x02, 0x00, 0x08, 0x30, 0x00, 0x00 }, 0x05, "DX7 15: 2-1 | (6+5)-4-3", 1 },
+        { { 0x16, 0x00, 0x08, 0x00, 0x20, 0x00 }, 0x01, "DX7 16: (6-5+4-3+2)-1", 5 },
+        { { 0x16, 0x00, 0x08, 0x00, 0x20, 0x00 }, 0x01, "DX7 17: (6-5+4-3+2)-1", 1 },
+        { { 0x0E, 0x00, 0x00, 0x10, 0x20, 0x00 }, 0x01, "DX7 18: (6-5-4+3+2)-1", 2 },
+        { { 0x02, 0x04, 0x00, 0x20, 0x20, 0x00 }, 0x19, "DX7 19: 3-2-1 | 6-4 | 6-5", 5 },
+        { { 0x04, 0x04, 0x00, 0x30, 0x00, 0x00 }, 0x0B, "DX7 20: 3-1 | 3-2 | (6+5)-4", 2 },
+        { { 0x04, 0x04, 0x00, 0x20, 0x20, 0x00 }, 0x1B, "DX7 21: 3-1 | 3-2 | 6-4 | 6-5", 2 },
+        { { 0x02, 0x00, 0x20, 0x20, 0x20, 0x00 }, 0x1D, "DX7 22: 2-1 | 6-3 | 6-4 | 6-5", 5 },
+        { { 0x00, 0x04, 0x00, 0x20, 0x20, 0x00 }, 0x1B, "DX7 23: 1 | 3-2 | 6-4 | 6-5", 5 },
+        { { 0x00, 0x00, 0x20, 0x20, 0x20, 0x00 }, 0x1F, "DX7 24: 1 | 2 | 6-3 | 6-4 | 6-5", 5 },
+        { { 0x00, 0x00, 0x00, 0x20, 0x20, 0x00 }, 0x1F, "DX7 25: 1 | 2 | 3 | 6-4 | 6-5", 5 },
+        { { 0x00, 0x04, 0x00, 0x30, 0x00, 0x00 }, 0x0B, "DX7 26: 1 | 3-2 | (6+5)-4", 5 },
+        { { 0x00, 0x04, 0x00, 0x30, 0x00, 0x00 }, 0x0B, "DX7 27: 1 | 3-2 | (6+5)-4", 2 },
+        { { 0x02, 0x00, 0x08, 0x10, 0x00, 0x00 }, 0x25, "DX7 28: 2-1 | 5-4-3 | 6", 4 },
+        { { 0x00, 0x00, 0x08, 0x00, 0x20, 0x00 }, 0x17, "DX7 29: 1 | 2 | 4-3 | 6-5", 5 },
+        { { 0x00, 0x00, 0x08, 0x10, 0x00, 0x00 }, 0x27, "DX7 30: 1 | 2 | 5-4-3 | 6", 4 },
+        { { 0x00, 0x00, 0x00, 0x00, 0x20, 0x00 }, 0x1F, "DX7 31: 1 | 2 | 3 | 4 | 6-5", 5 },
+        { { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, 0x3F, "DX7 32: 1 | 2 | 3 | 4 | 5 | 6", 5 },
     };
 }
 
@@ -564,12 +654,34 @@ void TrackSynth::beginSegment (Voice& voice, int opIndex, int stage)
     op.holding = false;
 
     // Keyboard rate scaling: higher notes run their envelopes faster, which is
-    // most of the reason an FM piano sounds right across the keyboard.
-    const auto scale = settings.rateScale * (voice.midiNote - 60) / 12.0;
+    // most of the reason an FM piano sounds right across the keyboard. The
+    // classic engine scales twice as hard, which is the DX7's 0..7 curve.
+    const auto classic = params.patch.classicEngine;
+    const auto octaves = (voice.midiNote - 60) / 12.0;
+    const auto scale = classic ? settings.rateScale * octaves * 2.0
+                               : settings.rateScale * octaves;
     const auto rate = juce::jlimit (0, 99, settings.rate[stage] + (int) std::lround (scale));
 
-    op.remaining = juce::jmax (1.0, fm::rateToSeconds (rate) * sampleRate);
+    const auto seconds = classic ? fm::rateToSecondsClassic (rate) : fm::rateToSeconds (rate);
+    op.remaining = juce::jmax (1.0, seconds * sampleRate);
     op.step = (settings.level[stage] - op.envelope) / op.remaining;
+}
+
+void TrackSynth::beginPitchSegment (Voice& voice, int stage)
+{
+    const auto& pe = params.patch.pitchEg;
+
+    voice.pitchStage = stage;
+    voice.pitchHolding = false;
+
+    // The pitch envelope starts on L1 and glides through L2 and L3; the release
+    // stage runs R4 down to L4.
+    const auto targetIndex = stage == 0 ? 1 : (stage == 1 ? 2 : 3);
+    const auto rateIndex = juce::jlimit (0, 3, stage);
+    const auto seconds = fm::rateToSecondsClassic (pe.rate[rateIndex]);
+
+    voice.pitchRemaining = juce::jmax (1.0, seconds * sampleRate);
+    voice.pitchStep = (pe.level[targetIndex] - voice.pitchEnvelope) / voice.pitchRemaining;
 }
 
 void TrackSynth::startVoice (Voice& voice)
@@ -596,6 +708,36 @@ void TrackSynth::startVoice (Voice& voice)
     voice.lfoDelayTime = 0.0;
     voice.lfoHold = 0.0;
     voice.lfoHoldValid = false;
+
+    const auto& patch = params.patch;
+
+    if (patch.classicEngine)
+    {
+        voice.pitchEnvelope = patch.pitchEg.level[0];
+        voice.pitchFinished = false;
+        voice.pitchHolding = false;
+        voice.pitchStage = 0;
+        beginPitchSegment (voice, 0);
+
+        // Keyboard level scaling and velocity, both in 0..99 level units, fixed
+        // for the whole note.
+        for (int i = 0; i < kFmOperators; ++i)
+        {
+            const auto& op = patch.ops[(size_t) i];
+            auto offset = keyScaleOffset (op, voice.midiNote);
+
+            if (op.velSens > 0)
+                offset -= (op.velSens / 7.0) * 99.0
+                              * (1.0 - std::sqrt (juce::jlimit (0.0, 1.0, (double) voice.amplitude)));
+
+            voice.opLevelOffset[i] = (float) offset;
+        }
+    }
+    else
+    {
+        for (auto& offset : voice.opLevelOffset)
+            offset = 0.0f;
+    }
 }
 
 void TrackSynth::noteOn (juce::int64 noteId, float frequencyHz, float velocity)
@@ -688,17 +830,29 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
 
     const auto& patch = params.patch;
     const auto& alg = getFmAlgorithm (patch.algorithm);
+    const auto classic = patch.classicEngine;
     const auto dtRatio = 1.0 / sampleRate;
-    const auto voiceTrim = kMasterTrim * juce::jlimit (0.0f, 1.0f, params.gain);
+    const auto voiceTrim = (classic ? kMasterTrimClassic : kMasterTrimLegacy)
+                               * juce::jlimit (0.0f, 1.0f, params.gain);
 
     // The transpose shifts the whole patch, exactly like holding the transpose
-    // button on the original.
+    // button on the original. Fixed-frequency operators ignore it.
     const auto transposeRatio = std::pow (2.0, patch.transpose / 12.0);
-    const auto feedbackAmount = kFeedbackScale * (patch.feedback / 7.0);
-    const auto lfoIncrement = lfoHz (patch.lfoRate) / sampleRate;
+    const auto feedbackAmount = (classic ? kFeedbackScaleClassic : kFeedbackScaleLegacy)
+                                    * (patch.feedback / 7.0);
+    const auto modScale = classic ? kModulationScaleClassic : kModulationScaleLegacy;
+    const auto lfoIncrement = (classic ? lfoHzClassic (patch.lfoRate) : lfoHz (patch.lfoRate))
+                                  / sampleRate;
     const auto lfoDelaySeconds = (patch.lfoDelay / 99.0) * 3.0;
-    const auto pitchDepthCents = (patch.lfoPitchDepth / 99.0) * 100.0;
+    const auto pitchDepthCents = classic
+        ? (patch.lfoPitchDepth / 99.0) * (patch.lfoPitchModSens / 7.0) * 200.0
+        : (patch.lfoPitchDepth / 99.0) * 100.0;
     const auto ampDepth = patch.lfoAmpDepth / 99.0;
+
+    // A free-running classic LFO is shared by every voice: the phase at the start
+    // of the block plus the sample index gives each sample the same value.
+    const auto sharedLfo = classic && ! patch.lfoSync;
+    const auto sharedLfoStart = globalLfoPhase;
 
     auto* left  = buffer.getWritePointer (0, startSample);
     auto* right = buffer.getWritePointer (1, startSample);
@@ -731,8 +885,19 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
         for (int i = 0; i < numSamples; ++i)
         {
             // ---- LFO -------------------------------------------------------
-            v.lfoPhase = wrap01 (v.lfoPhase + lfoIncrement);
-            const auto lfoWrapped = v.lfoPhase < lfoIncrement;
+            double lfoPhase;
+
+            if (sharedLfo)
+            {
+                lfoPhase = wrap01 (sharedLfoStart + i * lfoIncrement);
+            }
+            else
+            {
+                v.lfoPhase = wrap01 (v.lfoPhase + lfoIncrement);
+                lfoPhase = v.lfoPhase;
+            }
+
+            const auto lfoWrapped = lfoPhase < lfoIncrement;
 
             if (lfoDelaySeconds > 0.0)
                 v.lfoDelayTime = juce::jmin (lfoDelaySeconds, v.lfoDelayTime + dtRatio);
@@ -741,24 +906,52 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
 
             double lfo = 0.0;
 
-            switch (juce::jlimit (0, 4, patch.lfoWaveform))
+            if (classic)
             {
-                case 0:  lfo = v.lfoPhase < 0.5 ? (4.0 * v.lfoPhase - 1.0)
-                                                : (3.0 - 4.0 * v.lfoPhase); break;   // triangle
-                case 1:  lfo = 2.0 * v.lfoPhase - 1.0; break;                        // saw up
-                case 2:  lfo = 1.0 - 2.0 * v.lfoPhase; break;                        // saw down
-                case 3:  lfo = v.lfoPhase < 0.5 ? 1.0 : -1.0; break;                 // square
-                default:
+                // DX7 order: triangle, saw down, saw up, square, sine, sample & hold.
+                switch (juce::jlimit (0, 5, patch.lfoWaveform))
                 {
-                    // Sample and hold: a new value once per LFO cycle.
-                    if (! v.lfoHoldValid || lfoWrapped)
+                    case 0:  lfo = lfoPhase < 0.5 ? (4.0 * lfoPhase - 1.0)
+                                                  : (3.0 - 4.0 * lfoPhase); break;
+                    case 1:  lfo = 1.0 - 2.0 * lfoPhase; break;
+                    case 2:  lfo = 2.0 * lfoPhase - 1.0; break;
+                    case 3:  lfo = lfoPhase < 0.5 ? 1.0 : -1.0; break;
+                    case 4:  lfo = std::sin (kTwoPi * lfoPhase); break;
+                    default:
                     {
-                        v.lfoHold = lfoRandom.nextDouble() * 2.0 - 1.0;
-                        v.lfoHoldValid = true;
-                    }
+                        if (! v.lfoHoldValid || lfoWrapped)
+                        {
+                            v.lfoHold = lfoRandom.nextDouble() * 2.0 - 1.0;
+                            v.lfoHoldValid = true;
+                        }
 
-                    lfo = v.lfoHold;
-                    break;
+                        lfo = v.lfoHold;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // The pre-DX7 order this engine shipped with: triangle, saw up,
+                // saw down, square, sample & hold.
+                switch (juce::jlimit (0, 4, patch.lfoWaveform))
+                {
+                    case 0:  lfo = lfoPhase < 0.5 ? (4.0 * lfoPhase - 1.0)
+                                                  : (3.0 - 4.0 * lfoPhase); break;
+                    case 1:  lfo = 2.0 * lfoPhase - 1.0; break;
+                    case 2:  lfo = 1.0 - 2.0 * lfoPhase; break;
+                    case 3:  lfo = lfoPhase < 0.5 ? 1.0 : -1.0; break;
+                    default:
+                    {
+                        if (! v.lfoHoldValid || lfoWrapped)
+                        {
+                            v.lfoHold = lfoRandom.nextDouble() * 2.0 - 1.0;
+                            v.lfoHoldValid = true;
+                        }
+
+                        lfo = v.lfoHold;
+                        break;
+                    }
                 }
             }
 
@@ -768,6 +961,37 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
                                          ? std::pow (2.0, (pitchDepthCents * lfo) / 1200.0)
                                          : 1.0;
             const auto tremolo = 1.0 - ampDepth * (0.5 - 0.5 * lfo);
+
+            // ---- pitch envelope (classic only) ------------------------------
+            double pitchEgRatio = 1.0;
+
+            if (classic)
+            {
+                if (v.released && ! v.pitchFinished && v.pitchStage < 3)
+                    beginPitchSegment (v, 3);
+
+                if (! v.pitchFinished && ! v.pitchHolding)
+                {
+                    v.pitchEnvelope += v.pitchStep;
+                    v.pitchRemaining -= 1.0;
+
+                    if (v.pitchRemaining <= 0.0)
+                    {
+                        switch (v.pitchStage)
+                        {
+                            case 0: v.pitchEnvelope = patch.pitchEg.level[1];
+                                    beginPitchSegment (v, 1); break;
+                            case 1: v.pitchEnvelope = patch.pitchEg.level[2];
+                                    v.pitchHolding = true; break;
+                            default: v.pitchEnvelope = patch.pitchEg.level[3];
+                                     v.pitchFinished = true; break;
+                        }
+                    }
+                }
+
+                const auto semitones = (v.pitchEnvelope - 50.0) / 50.0 * kPitchEgRangeSemitones;
+                pitchEgRatio = std::pow (2.0, semitones / 12.0);
+            }
 
             // ---- operators, from the top of the stack downwards --------------
             double output = 0.0;
@@ -801,8 +1025,12 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
                     }
                 }
 
-                const auto operatorFrequency = baseFrequency * settings.ratio
-                                                   * std::pow (2.0, settings.detune * 0.02) * pitchFactor;
+                const auto base = classic && settings.mode == FmOscMode::fixed
+                                      ? (double) settings.fixedHz
+                                      : baseFrequency * settings.ratio;
+                const auto operatorFrequency = base
+                                                   * std::pow (2.0, settings.detune * 0.02)
+                                                   * pitchFactor * pitchEgRatio;
                 op.phase = wrap01 (op.phase + operatorFrequency * dtRatio);
 
                 // Phase modulation from every operator that feeds this one.
@@ -810,14 +1038,29 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
 
                 for (int m = kFmOperators - 1; m > o; --m)
                     if ((alg.modulators[o] & opBit (m)) != 0)
-                        phase += v.ops[m].output * kModulationScale;
+                        phase += v.ops[m].output * modScale;
 
-                if (o == kFmOperators - 1 && feedbackAmount > 0.0)
-                    phase += v.feedbackMemory * feedbackAmount * kModulationScale;
+                if (o == alg.feedbackOp && feedbackAmount > 0.0)
+                    phase += v.feedbackMemory * feedbackAmount * modScale;
 
-                auto level = levelToAmplitude (settings.outputLevel)
-                                 * (1.0 - (settings.velSens / 7.0) * (1.0 - v.amplitude))
-                                 * levelToAmplitude (op.envelope);
+                double level = 0.0;
+
+                if (classic)
+                {
+                    const auto effective = settings.outputLevel + v.opLevelOffset[o];
+                    level = levelToAmplitudeClassic (effective)
+                                * levelToAmplitudeClassic (op.envelope);
+
+                    if (settings.amSens > 0 && ampDepth > 0.0)
+                        level *= 1.0 - ampDepth * (0.5 - 0.5 * lfo)
+                                      * (settings.amSens / 3.0);
+                }
+                else
+                {
+                    level = levelToAmplitudeLegacy (settings.outputLevel)
+                                * (1.0 - (settings.velSens / 7.0) * (1.0 - v.amplitude))
+                                * levelToAmplitudeLegacy (op.envelope);
+                }
 
                 // A switched-off operator keeps tracing its envelope (so it picks
                 // up where it would have been when it comes back) but contributes
@@ -827,7 +1070,7 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
 
                 op.output = std::sin (kTwoPi * wrap01 (phase)) * level;
 
-                if (o == kFmOperators - 1)
+                if (o == alg.feedbackOp)
                     v.feedbackMemory = op.output;
             }
 
@@ -835,7 +1078,8 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
                 if ((alg.carriers & opBit (o)) != 0)
                     output += v.ops[o].output;
 
-            output *= tremolo;
+            if (! classic)
+                output *= tremolo;
 
             // ---- voice ------------------------------------------------------
             bool anyRunning = false;
@@ -857,6 +1101,9 @@ void TrackSynth::renderAdding (juce::AudioBuffer<float>& buffer,
             right[i] += filtered * rg;
         }
     }
+
+    if (sharedLfo)
+        globalLfoPhase = wrap01 (sharedLfoStart + numSamples * lfoIncrement);
 }
 
 } // namespace nidaw

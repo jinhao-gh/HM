@@ -655,3 +655,15 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 - 端点拖动新增 `pitchHandlePreviewTickDelta`：横向以指针 tick 增量计算并吸附，纵向继续用频率因子；提交时在同一条撤销里同时改端点时间与频率。
 - 连接链本体拖动不再把整链装入 `dragOriginals`，而是记录 `SeamFollower`。每个未选中的直接前驱只让尾部跟随拖动音符的头部，每个直接后继只让头部跟随拖动音符的尾部，外侧端点保持原位。
 - `EditorPanel` 将 `ControllerLane` 与 `laneResizer` 同时裁掉键盘列和右侧滚动条宽度，力度/CC 的 tick 映射因此与 `PianoGrid::gridArea()` 完全共享左右边界。
+
+## 第六十八批 · DX7 兼容的 FM 引擎
+
+- `kFmAlgorithmCount = 64`：`kAlgorithms` 前 32 条是 HM 原路由，后 32 条是 DX7 原厂路由（`getFmAlgorithm(32 + N)`）。`FmAlgorithm` 新增 `feedbackOp`（0 基），旧条目默认 5（OP6）；原厂 2/8/10/12/15/18/20/21/27 指向别的运算器。
+- 引擎按 `FmPatch::classicEngine` 走两套曲线。经典：`levelToAmplitudeClassic(l) = 10^((l-99)*0.75/20)`（0 = 静音）、`fm::rateToSecondsClassic`（99 ≈ 1 ms、0 ≈ 20 s）、速率缩放每八度 ×2、力度按 `(1-sqrt(vel))` 折算、调制指数 1 周期、反馈 1 周期。旧引擎保留原二次曲线、`rateToSeconds`、2 周期调制指数与 0.35 反馈。
+- `Voice` 新增每运算器的电平偏移（键盘缩放 + 力度，note-on 时算一次）和 pitch EG 状态；`TrackSynth::globalLfoPhase` 在 `classicEngine && !lfoSync` 时按块推进，所有声部共享同一相位。
+- 键盘缩放曲线：`keyScaleShape` 把断点距离（半音，最多 96）映射到 -LIN/-EXP/+EXP/+LIN 的 0..1 形状，乘深度（0..99）得到电平偏移；固定频率运算器忽略音高与移调。
+- 音高 EG：从 L1 出发，R1→L2、R2→L3 后保持，释放 R4→L4；电平 50 = 0，`(l-50)/50*48` 半音。
+- LFO：经典顺序为三角/下锯齿/上锯齿/方波/正弦/S&H，旧引擎保留原 5 种顺序；PMD 深度按 `pmSens/7 * 200` 音分，AMD 按每运算器 `amSens/3` 作用。
+- 序列化：`synthParamsToVar`/`synthParamsFromVar` 写读 `classic`、`pitchEgRate/Level`、`lfoPitchModSens/lfoSync`，每个运算器写读 `mode/fixedHz/breakPoint/leftCurve/rightCurve/leftDepth/rightDepth/amSens`；缺 `classic` 的文件读成 false。
+- `Core/Dx7FactoryPresets.h` 由 `work/dx7-convert/generate3.py` 生成：`p.algorithm = 32 + 原厂编号`、`classicEngine = true`，并写入固定频率、键盘缩放、AM 灵敏度、音高 EG 与 LFO 设置。
+- 默认运算器包络为 `{99, 99, 99, 0}`（仍是 4 段、L4 = 0）；工厂预设显式覆盖，默认工程因此是常驻正弦而不是会衰减的短音。

@@ -8,19 +8,23 @@
 namespace nidaw::fm
 {
 
-/** A named factory sound. `category` is the second-level menu the editor shows. */
+/** A named factory sound. `category` is the second-level menu the editor shows,
+    `dx7Algorithm` the original Yamaha routing (1..32) the builder uses. */
 struct Preset
 {
     const char* name;
     const char* category;
+    int dx7Algorithm;
     void (*build) (FmPatch&);
 };
 
 /** The factory bank, in the order the editor lists it.
 
     The 32 sounds are the Yamaha DX7 factory ROM-1A voices, converted to this
-    engine's six-operator model by `Core/Dx7FactoryPresets.h` (see the note there
-    about the approximation and the data source).
+    engine's six-operator model by `Core/Dx7FactoryPresets.h`. Since the engine
+    learned the DX7 parameter set (algorithms 33..64, fixed frequency, keyboard
+    scaling, AM sensitivity, pitch EG) the conversion uses each voice's real
+    routing instead of an approximation; see the note in that header.
 */
 inline const Preset* bank (int& countOut)
 {
@@ -33,7 +37,8 @@ inline const Preset* bank (int& countOut)
         list.reserve ((size_t) count);
 
         for (int i = 0; i < count; ++i)
-            list.push_back ({ voices[i].name, voices[i].category, voices[i].build });
+            list.push_back ({ voices[i].name, voices[i].category, voices[i].dx7Algorithm,
+                              voices[i].build });
 
         return list;
     }();

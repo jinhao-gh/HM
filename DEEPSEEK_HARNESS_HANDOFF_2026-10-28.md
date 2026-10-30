@@ -47,24 +47,24 @@ HM 是一个 Windows 原生数字音频工作站，核心差异是“频率是�
 
 最近一次完整发布验证：
 
-- 单元测试：**37 组 / 6125 条，0 失败**
-- 离屏自检：**1498 项 / 63 张快照，0 失败**
+- 单元测试：**38 组 / 6395 条，0 失败**
+- 离屏自检：**1506 项 / 64 张快照，0 失败**
 - 真实 VST3 乐器测试：通过
 - 真实 VST3 效果器测试：通过
 - 主程序与独立单元测试目标均完成干净重建
 - `NiDaw\Source\` 编译警告：0
 
-最近交付物（2026-10-29，含第六十六、六十七、六十八批，已用本机证书签名）：
+最近交付物（2026-10-30，含第六十六至六十九批，已用本机证书签名）：
 
 - `outputs/HM/HM.exe`
-  - 大小：9,361,728 bytes
-  - SHA-256：`27059EA671DF09760906462347351EFAB1974181D860596D9B020545CAFD77EA`
+  - 大小：9,492,800 bytes
+  - SHA-256：`EFDFBF9EDA5D717C285F87D9B0FBE499EA8B080D85F815BDEF23350B2E40547D`
   - 签名：`CN=HM, O=HM, OU=Local build`，Authenticode `Valid`（只对本机当前用户可信）
 - `outputs/HM-win64.zip`
-  - 大小：6,400,350 bytes
-  - SHA-256：`AC92763586D78FE7ED8D728A24DDB04A41F210BB850D81054844E8208708E83E`
+  - 大小：6,451,462 bytes
+  - SHA-256：`909A0AA12257AFC9E3127A0FFBB1F7B57A3EDD4B43E4133BCF72961F28E2862C`
 
-这些是 2026-10-29 最后一次完整发布（`make_release.bat`）的产物，已签名。
+这些是 2026-10-30 最后一次完整发布（`make_release.bat`）的产物，已签名。
 
 ### 2.2 第六十五批刚完成的内容
 
@@ -332,6 +332,9 @@ ni/
 | 工厂音色 | `NiDaw/Source/Core/HybridPresets.h` | 8 类共 48 个混合音色 |
 | DX7 工厂音色 | `NiDaw/Source/Core/Dx7FactoryPresets.h` | ROM-1A 的 32 个音色（4 类，中文名，算法 33–64） |
 | DX7 引擎 | `NiDaw/Source/Audio/SynthEngine.cpp` | 64 条算法、dB 曲线、键盘缩放、固定频率、音高 EG、LFO |
+| 迷你穆格 | `NiDaw/Source/Audio/MinimoogSynth.{h,cpp}` | 3 振荡器、梯形滤波、双包络、单音/复音、力度 |
+| 穆格预设 | `NiDaw/Source/Core/MinimoogPresets.h` | 30 个预设（6 类 × 5） |
+| 穆格面板 | `NiDaw/Source/UI/MinimoogEditor.{h,cpp}` | 五段式面板 + HM 扩展条 |
 
 ### 6.6 测试
 
@@ -640,3 +643,19 @@ DSH 接手后按第 4 节复现了基线：37 组 / 5528 条、1483 项 / 61 张
 - 已知取舍：曲线常量是 DX7 参数语义级近似，不是 LSI 仿真；原厂 4/6 的跨链反馈按读反馈运算器
   自反馈近似；不模拟 12-bit DAC。用 E.PIANO 1 / BRASS 1 / TUB BELLS 试听校准。
 - 发布脚本：自检改走 `run_selftest.ps1`（私有 TEMP），修掉共享临时目录让波表检查多数一张表的问题。
+
+## 17. 第六十九批接手记录（2026-10-30）
+
+- 新乐器 `TrackKind::minimoog`（值 9）：`Core/Types.h` 的 `MinimoogParams`、`Audio/MinimoogSynth.{h,cpp}`、
+  `Core/MinimoogPresets.h`、`UI/MinimoogEditor.{h,cpp}`；`AudioEngine`、`SynthWindow`、`TrackArea`、
+  `PresetStore`、`ProjectDocument`、`CMakeLists.txt`/`cmake/SharedSources.cmake` 均已接通。
+- 声音：3 振荡器（6 波形 × 6 音域、osc2/3 ±7 半音）、白/粉噪声、过载混音、自写四极梯形滤波、
+  滤波/响度指数包络、振荡器 3/噪声调制混合、单音滑音；8' 时 A4 = 440 逐档位单测。
+- 演奏：单音后按优先（默认）；复音数 2/4/8/16/32/不限（64）；力度 0–10 可调，0 时忽略力度。
+  复音数与力度是演奏设置，工厂预设不覆盖。
+- 界面：1120×680 五段式面板 + HM 扩展条（复音数、力度、预设栏）+ C2–C6 键盘；30 个预设、6 类；
+  新建轨道默认「经典主音」。
+- 新基线：单元测试 38 组 / 6395 条；离屏自检 1506 项 / 64 张快照；VST3 / VST3FX 通过；
+  发布产物已签名（见 §2.1 的哈希）。
+- 已知取舍：包络“维持”为固定 0.8 平台；复音模式无滑音；PITCH 轮只影响试听；外部输入/A-440/
+  耳机为禁用装饰；未做原机逐点 A/B。

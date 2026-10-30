@@ -768,6 +768,7 @@ juce::String projectToJson (const Project& project)
         o->setProperty ("vst", vst::vstParamsToVar (t.vst));
         o->setProperty ("granular", granularParamsToVar (t.granular));
         o->setProperty ("hybrid", hybridParamsToVar (t.hybrid));
+        o->setProperty ("minimoog", minimoogParamsToVar (t.minimoog));
         o->setProperty ("effects", effects::toVar (t.effects));
 
         juce::Array<juce::var> clips;
@@ -914,7 +915,7 @@ bool projectFromJson (const juce::String& json, Project& destination, juce::Stri
             {
                 InstrumentTrack t;
                 t.id          = readInt64 (tv, "id", 0);
-                t.kind        = (TrackKind) juce::jlimit (0, 8, readInt (tv, "kind", 0));
+                t.kind        = (TrackKind) juce::jlimit (0, 9, readInt (tv, "kind", 0));
                 t.name        = readString (tv, "name", NI_TXT ("乐器"));
                 t.volumeDb    = (float) readDouble (tv, "volumeDb", -6.0);
                 t.pan         = (float) juce::jlimit (-1.0, 1.0, readDouble (tv, "pan", 0.0));
@@ -946,6 +947,9 @@ bool projectFromJson (const juce::String& json, Project& destination, juce::Stri
                 t.hybrid      = hybridParamsFromVar (tv.getDynamicObject() != nullptr
                                                          ? tv.getDynamicObject()->getProperty ("hybrid")
                                                          : juce::var());
+                t.minimoog    = minimoogParamsFromVar (tv.getDynamicObject() != nullptr
+                                                           ? tv.getDynamicObject()->getProperty ("minimoog")
+                                                           : juce::var());
                 t.effects     = effects::fromVar (tv.getDynamicObject() != nullptr
                                                       ? tv.getDynamicObject()->getProperty ("effects")
                                                       : juce::var());

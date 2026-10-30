@@ -22,6 +22,7 @@ set (NIDAW_SHARED_SOURCES
     "${NIDAW_ROOT}/Source/Core/WavetableTables.cpp"
     "${NIDAW_ROOT}/Source/Audio/SynthEngine.cpp"
     "${NIDAW_ROOT}/Source/Audio/SubtractiveSynth.cpp"
+    "${NIDAW_ROOT}/Source/Audio/MinimoogSynth.cpp"
     "${NIDAW_ROOT}/Source/Audio/WavetableSynth.cpp"
     "${NIDAW_ROOT}/Source/Audio/DrumSynth.cpp"
     "${NIDAW_ROOT}/Source/Audio/SamplePlayer.cpp"

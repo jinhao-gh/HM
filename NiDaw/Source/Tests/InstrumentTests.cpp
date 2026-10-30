@@ -1513,9 +1513,11 @@ public:
         {
             const TrackKind kinds[] = { TrackKind::synth, TrackKind::sampler, TrackKind::audio,
                                         TrackKind::subtractive, TrackKind::wavetable,
-                                        TrackKind::drums };
+                                        TrackKind::drums, TrackKind::vst,
+                                        TrackKind::granular, TrackKind::hybrid,
+                                        TrackKind::minimoog };
 
-            for (int value = 0; value <= (int) TrackKind::drums; ++value)
+            for (int value = 0; value <= (int) TrackKind::minimoog; ++value)
             {
                 auto project = makeProjectWithSynthTrack();
                 auto parsed = juce::JSON::parse (projectToJson (project));

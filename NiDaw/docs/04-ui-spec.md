@@ -1454,3 +1454,15 @@ MIDI 输入不再只认 note on/off：
 
 - 波形按钮从 5 个变成 6 个（`三角波` `下降锯齿` `上升锯齿` `方波` `正弦` `随机保持`，DX7 顺序），每个 58 px。
 - 左列新增 `音高灵敏度` 0–7 滑杆与 `按键同步` 开关；同步关时 LFO 相位由所有声部共享。
+
+## 第六十九批 · 迷你穆格面板
+
+- 设计尺寸 **1120 × 680**；顶部 40 px 是 HM 扩展条，底部 64 px 是试听键盘（C2–C6）。
+- **HM 扩展条**：左边标题「MINI · MODEL D」；右边从右往左是预设栏（600 px）、`力度` 横向滑杆 0–10、`复音数` 下拉（单音 / 2 / 4 / 8 / 16 / 32 / 不限（最多 64 声部））。扩展条不遮挡面板。
+- **面板**：深炭黑渐变 + 左右 26 px 木纹侧板 + 四角螺丝；五段式分区由 `drawPanelSection` 画框和标题：CONTROLLERS / OSCILLATOR BANK / MIXER / MODIFIERS / OUTPUT。
+- **CONTROLLERS**（160 px）：PITCH 与 MOD 两个竖轮（PITCH 回弹、只影响试听；MOD 写 `modDepth`），TUNE（±50 音分）、GLIDE（1 ms–2 s）+ 滑音拨杆、MOD.MIX、`→音高` / `→滤波` 两个调制拨杆。
+- **OSCILLATOR BANK**（360 px）：三列；每列 RANGE 旋转开关（LO 32' 16' 8' 4' 2'）、WAVEFORM 旋转开关（1–6，开关下方显示当前波形中文名）、频率旋钮（osc2/3 ±7 半音；osc1 禁用）。
+- **MIXER**（150 px）：4 条竖直推子（OSC1/2/3、NOISE）+ 3 个 ON 波杆；NOISE 白/粉波杆；右下角 OVERLOAD 灯（三路电平之和 > 1 点亮）。
+- **MODIFIERS**：三列——FILTER（CUTOFF / EMPHASIS / CONTOUR、键盘 1/3 与 2/3 波杆）、滤波包络（ATTACK / DECAY / 衰减长-短 / 维持）、响度包络（ATTACK / DECAY / 衰减长-短 / 维持 / 释放）。
+- **OUTPUT**（84 px）：VOLUME 旋钮、MAIN OUT 波杆（装饰）；A-440 与 PHONES 也是禁用装饰。
+- 旋钮使用 `configureSynthKnob` 的旋转手感（文本在下方）；`MinimoogRotarySwitch` 画环绕档位标签并支持拖动/点击/滚轮/方向键；`MinimoogRocker` 是两档拨杆，上红下蓝表示状态；`MinimoogWheel` 画竖轮与位置线。

@@ -12,6 +12,7 @@ SynthWindow::Content::Content (ProjectDocument& document, AudioEngine& audioEngi
     fm = new SynthEditor (document, audioEngine, presets);
     sampler = new SamplerEditor (document, audioEngine, presets);
     subtractive = new SubtractiveEditor (document, audioEngine, presets);
+    minimoog = new MinimoogEditor (document, audioEngine, presets);
     wavetable = new WavetableEditor (document, audioEngine, presets);
     drums = new DrumEditor (document, audioEngine, presets);
     granular = new GranularEditor (document, audioEngine, presets);
@@ -20,6 +21,7 @@ SynthWindow::Content::Content (ProjectDocument& document, AudioEngine& audioEngi
     addAndMakeVisible (fm);
     addChildComponent (sampler);
     addChildComponent (subtractive);
+    addChildComponent (minimoog);
     addChildComponent (wavetable);
     addChildComponent (drums);
     addChildComponent (granular);
@@ -31,6 +33,7 @@ void SynthWindow::Content::resized()
     fm->setBounds (getLocalBounds());
     sampler->setBounds (getLocalBounds());
     subtractive->setBounds (getLocalBounds());
+    minimoog->setBounds (getLocalBounds());
     wavetable->setBounds (getLocalBounds());
     drums->setBounds (getLocalBounds());
     granular->setBounds (getLocalBounds());
@@ -48,6 +51,7 @@ void SynthWindow::Content::showFor (TrackKind kind)
         case TrackKind::synth:       page = fm; break;
         case TrackKind::sampler:     page = sampler; break;
         case TrackKind::subtractive: page = subtractive; break;
+        case TrackKind::minimoog:    page = minimoog; break;
         case TrackKind::wavetable:   page = wavetable; break;
         case TrackKind::drums:       page = drums; break;
         case TrackKind::granular:    page = granular; break;
@@ -59,6 +63,7 @@ void SynthWindow::Content::showFor (TrackKind kind)
     for (auto* pageEditor : { static_cast<juce::Component*> (fm),
                               static_cast<juce::Component*> (sampler),
                               static_cast<juce::Component*> (subtractive),
+                              static_cast<juce::Component*> (minimoog),
                               static_cast<juce::Component*> (wavetable),
                               static_cast<juce::Component*> (drums),
                               static_cast<juce::Component*> (granular),
@@ -81,6 +86,7 @@ SynthWindow::SynthWindow (ProjectDocument& document, AudioEngine& audioEngine,
     editor = content->fm;
     samplerEditor = content->sampler;
     subtractiveEditor = content->subtractive;
+    minimoogEditor = content->minimoog;
     wavetableEditor = content->wavetable;
     drumEditor = content->drums;
     granularEditor = content->granular;
@@ -104,6 +110,7 @@ SynthWindow::~SynthWindow()
     editor = nullptr;
     samplerEditor = nullptr;
     subtractiveEditor = nullptr;
+    minimoogEditor = nullptr;
     wavetableEditor = nullptr;
     drumEditor = nullptr;
     granularEditor = nullptr;
@@ -153,6 +160,9 @@ void SynthWindow::setShowDialogs (bool shouldShow)
     if (subtractiveEditor != nullptr)
         subtractiveEditor->setShowDialogs (shouldShow);
 
+    if (minimoogEditor != nullptr)
+        minimoogEditor->setShowDialogs (shouldShow);
+
     if (wavetableEditor != nullptr)
         wavetableEditor->setShowDialogs (shouldShow);
 
@@ -188,6 +198,7 @@ void SynthWindow::showForTrack (juce::int64 trackId, const juce::String& trackNa
     {
         case TrackKind::sampler:     samplerEditor->setTrack (trackId); break;
         case TrackKind::subtractive: subtractiveEditor->setTrack (trackId); break;
+        case TrackKind::minimoog:    minimoogEditor->setTrack (trackId); break;
         case TrackKind::wavetable:   wavetableEditor->setTrack (trackId); break;
         case TrackKind::drums:       drumEditor->setTrack (trackId); break;
         case TrackKind::granular:    granularEditor->setTrack (trackId); break;

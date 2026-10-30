@@ -4,6 +4,7 @@
 #include "AutoScroll.h"
 #include "../Core/FmPresets.h"
 #include "../Core/SubtractivePresets.h"
+#include "../Core/MinimoogPresets.h"
 #include "../Core/WavetablePresets.h"
 #include "../Audio/SamplePlayer.h"
 
@@ -86,6 +87,10 @@ TrackArea::TrackArea (ProjectDocument& documentToUse, AppState& appStateToUse, A
             else if (result == 9)
             {
                 addTrack (TrackKind::hybrid);
+            }
+            else if (result == 10)
+            {
+                addTrack (TrackKind::minimoog);
             }
         });
     };
@@ -182,6 +187,13 @@ juce::int64 TrackArea::addTrack (TrackKind kind)
         if (kind == TrackKind::wavetable)
             if (auto* track = project.findTrack (newTrackId))
                 wavetable::applyPreset (track->wavetable, 0);
+
+        if (kind == TrackKind::minimoog)
+            if (auto* track = project.findTrack (newTrackId))
+            {
+                const auto index = minimoog::findPresetByName (NI_TXT ("经典主音"));
+                minimoog::applyPreset (track->minimoog, index >= 0 ? index : 0);
+            }
 
         if (kind == TrackKind::hybrid)
             if (auto* track = project.findTrack (newTrackId))
@@ -361,6 +373,7 @@ juce::PopupMenu TrackArea::buildAddMenu() const
     // The hybrid is the new headline instrument, so it sits at the top of the
     // menu instead of below every legacy kind.
     menu.addItem (9, NI_TXT ("混合合成器"), true);
+    menu.addItem (10, NI_TXT ("迷你穆格"), true);
     menu.addItem (1, NI_TXT ("FM合成器"), true);
     menu.addItem (4, NI_TXT ("鼓机"), true);
     menu.addItem (5, NI_TXT ("采样器"), true);

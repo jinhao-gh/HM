@@ -567,3 +567,19 @@ work\make_release.bat
 - 实测基线：单元测试 **37 组 / 6125 条**；离屏自检 **1498 项 / 63 张快照**；VST3 / VST3FX 通过。
 - 已知取舍：曲线常量是参数语义级近似，不是 LSI 仿真；原厂 4/6 的跨链反馈按读反馈运算器自反馈
   近似；不模拟 12-bit DAC。默认运算器包络改为 L1–L3 = 99，避免新工程默认音色在 dB 曲线下偏轻。
+
+## 15. 第六十九批交接（2026-10-30）
+
+- 新乐器 `TrackKind::minimoog`（枚举值 9）：`Core/Types.h` 的 `MinimoogParams`、`Audio/MinimoogSynth.{h,cpp}`、
+  `Core/MinimoogPresets.h`、`UI/MinimoogEditor.{h,cpp}`；`SynthWindow`、`TrackArea`、`AudioEngine`、
+  `PresetStore`、`ProjectDocument` 全部接通。
+- 声音：3 振荡器（6 波形 × 6 音域，osc2/3 ±7 半音）、白/粉噪声、过载混音、自写四极梯形滤波
+  （tanh 饱和 + 反馈）、滤波/响度指数包络、振荡器 3 与噪声的调制混合、滑音。
+- 演奏：单音后按优先 + legato 为默认；复音数可选 2/4/8/16/32/不限（上限 64）；力度 0–10 可调，
+  0 时还原原机忽略力度。复音数/力度是演奏设置，`applyPreset` 不覆盖。
+- 面板：五段式 CONTROLLERS / OSCILLATOR BANK / MIXER / MODIFIERS / OUTPUT，深色 + 木纹侧板；
+  顶部 HM 扩展条（复音数、力度、预设栏），底部 C2–C6 键盘；外部输入/A-440/耳机为禁用装饰。
+- 预设：30 个、6 类各 5，中文名；新建轨道默认「经典主音」。
+- 实测基线：单元测试 **38 组 / 6395 条**；离屏自检 **1506 项 / 64 张快照**；VST3 / VST3FX 通过。
+- 已知取舍：包络“维持”是固定 0.8 平台（原机只有开关）；PITCH 轮只弯试听；复音模式不做滑音；
+  「不限」封顶 64 声部；包络/滤波曲线未与原机逐点 A/B。

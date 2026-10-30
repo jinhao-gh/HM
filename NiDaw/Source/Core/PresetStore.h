@@ -32,6 +32,8 @@ juce::var samplerParamsToVar (const SamplerParams& params);
 SamplerParams samplerParamsFromVar (const juce::var& value);
 juce::var subtractiveParamsToVar (const SubtractiveParams& params);
 SubtractiveParams subtractiveParamsFromVar (const juce::var& value);
+juce::var minimoogParamsToVar (const MinimoogParams& params);
+MinimoogParams minimoogParamsFromVar (const juce::var& value);
 juce::var wavetableParamsToVar (const WavetableParams& params);
 WavetableParams wavetableParamsFromVar (const juce::var& value);
 juce::var customWavetableToVar (const CustomWavetable& table);
@@ -114,6 +116,10 @@ public:
     {
         return subtractivePresets;
     }
+    const std::vector<MinimoogParams>& getMinimoogPresets() const noexcept
+    {
+        return minimoogPresets;
+    }
     const std::vector<WavetablePatch>& getWavetablePatches() const noexcept
     {
         return wavetablePresets;
@@ -131,6 +137,7 @@ public:
     int findFmPresetByName (const juce::String& name) const;
     int findSamplerPresetByName (const juce::String& name) const;
     int findSubtractivePresetByName (const juce::String& name) const;
+    int findMinimoogPresetByName (const juce::String& name) const;
     int findWavetablePresetByName (const juce::String& name) const;
     int findDrumPresetByName (const juce::String& name) const;
     int findGranularPresetByName (const juce::String& name) const;
@@ -150,6 +157,11 @@ public:
     void replaceSubtractivePreset (int index, SubtractiveParams preset);
     void renameSubtractivePreset (int index, const juce::String& newName);
     void removeSubtractivePreset (int index);
+
+    void addMinimoogPreset (MinimoogParams preset);
+    void replaceMinimoogPreset (int index, MinimoogParams preset);
+    void renameMinimoogPreset (int index, const juce::String& newName);
+    void removeMinimoogPreset (int index);
 
     void addWavetablePreset (WavetablePatch preset);
     void replaceWavetablePreset (int index, WavetablePatch preset);
@@ -180,6 +192,7 @@ private:
     std::vector<SynthParams> fmPresets;
     std::vector<SamplerParams> samplerPresets;
     std::vector<SubtractiveParams> subtractivePresets;
+    std::vector<MinimoogParams> minimoogPresets;
     std::vector<WavetablePatch> wavetablePresets;
     std::vector<DrumKitParams> drumPresets;
     std::vector<GranularParams> granularPresets;

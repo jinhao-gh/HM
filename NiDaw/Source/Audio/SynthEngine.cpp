@@ -226,6 +226,7 @@ RenderSchedule buildSchedule (const Project& project, const std::set<juce::int64
         info.drums        = track.drums;
         info.granular     = track.granular;
         info.hybrid       = track.hybrid;
+        info.minimoog     = track.minimoog;
 
         // A VST track's sound comes from the plugin. The live instances are put in
         // place by the audio engine (the message thread owns them); an export asks

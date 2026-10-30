@@ -2,6 +2,7 @@
 
 #include "SamplerEditor.h"
 #include "SubtractiveEditor.h"
+#include "MinimoogEditor.h"
 #include "SynthEditor.h"
 #include "WavetableEditor.h"
 #include "DrumEditor.h"
@@ -41,6 +42,7 @@ public:
     SynthEditor& getEditor() noexcept { return *editor; }
     SamplerEditor& getSamplerEditor() noexcept { return *samplerEditor; }
     SubtractiveEditor& getSubtractiveEditor() noexcept { return *subtractiveEditor; }
+    MinimoogEditor& getMinimoogEditor() noexcept { return *minimoogEditor; }
     WavetableEditor& getWavetableEditor() noexcept { return *wavetableEditor; }
     DrumEditor& getDrumEditor() noexcept { return *drumEditor; }
     GranularEditor& getGranularEditor() noexcept { return *granularEditor; }
@@ -67,12 +69,15 @@ public:
         return kind == TrackKind::wavetable ? WavetableEditor::kDesignHeightWithWaterfall
                : kind == TrackKind::granular ? GranularEditor::kDesignHeightWithCloud
                : kind == TrackKind::hybrid ? HybridEditor::kDesignHeight
-                                            : kDesignHeight;
+               : kind == TrackKind::minimoog ? MinimoogEditor::kDesignHeight
+                                             : kDesignHeight;
     }
 
     static int pageWidthFor (TrackKind kind) noexcept
     {
-        return kind == TrackKind::hybrid ? HybridEditor::kDesignWidth : kDesignWidth;
+        return kind == TrackKind::hybrid ? HybridEditor::kDesignWidth
+               : kind == TrackKind::minimoog ? MinimoogEditor::kDesignWidth
+                                             : kDesignWidth;
     }
 
 private:
@@ -89,6 +94,7 @@ private:
         SynthEditor* fm = nullptr;
         SamplerEditor* sampler = nullptr;
         SubtractiveEditor* subtractive = nullptr;
+        MinimoogEditor* minimoog = nullptr;
         WavetableEditor* wavetable = nullptr;
         DrumEditor* drums = nullptr;
         GranularEditor* granular = nullptr;
@@ -98,6 +104,7 @@ private:
     SynthEditor* editor = nullptr;
     SamplerEditor* samplerEditor = nullptr;
     SubtractiveEditor* subtractiveEditor = nullptr;
+    MinimoogEditor* minimoogEditor = nullptr;
     WavetableEditor* wavetableEditor = nullptr;
     DrumEditor* drumEditor = nullptr;
     GranularEditor* granularEditor = nullptr;

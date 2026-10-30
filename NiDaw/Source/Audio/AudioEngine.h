@@ -2,6 +2,7 @@
 
 #include "../Core/ProjectDocument.h"
 #include "SubtractiveSynth.h"
+#include "MinimoogSynth.h"
 #include "WavetableSynth.h"
 #include "DrumSynth.h"
 #include "GranularSynth.h"
@@ -140,6 +141,11 @@ public:
     /** Same, for the subtractive instrument. */
     void triggerPreviewSubNote (const SubtractiveParams& params, double frequencyHz, float velocity);
     void updatePreviewSubParams (const SubtractiveParams& params);
+
+    /** Same, for the Minimoog instrument. */
+    void triggerPreviewMinimoogNote (const MinimoogParams& params, double frequencyHz,
+                                     float velocity);
+    void updatePreviewMinimoogParams (const MinimoogParams& params);
 
     /** Same, for the wavetable instrument. */
     void triggerPreviewWaveNote (const WavetableParams& params, double frequencyHz, float velocity);
@@ -333,6 +339,7 @@ private:
     std::vector<TrackSynth> synths;
     std::vector<SamplePlayer> samplePlayers;
     std::vector<SubtractiveSynth> subtractiveSynths;
+    std::vector<MinimoogSynth> minimoogSynths;
     std::vector<WavetableSynth> wavetableSynths;
     std::vector<DrumSynth> drumKits;
     std::vector<GranularSynth> granularSynths;
@@ -431,11 +438,12 @@ private:
     std::array<int, kMaxTracks> chainSilenceBlocks {};
 
     /** Which instrument the audition voice is using. */
-    enum class PreviewKind { fm, sampler, subtractive, wavetable, drums, granular };
+    enum class PreviewKind { fm, sampler, subtractive, minimoog, wavetable, drums, granular };
 
     TrackSynth previewSynth;
     SamplePlayer previewSampler;
     SubtractiveSynth previewSubtractive;
+    MinimoogSynth previewMinimoog;
     WavetableSynth previewWavetable;
     DrumSynth previewDrums;
     GranularSynth previewGranular;
@@ -443,6 +451,7 @@ private:
     SynthParams previewParams;
     SamplerParams previewSamplerParams;
     SubtractiveParams previewSubParams;
+    MinimoogParams previewMinimoogParams;
     WavetableParams previewWaveParams;
     std::array<std::shared_ptr<const wavetable::Wavetable>, 2> previewWaveTables;
     DrumKitParams previewDrumParams;
@@ -566,6 +575,17 @@ public:
     void updatePreviewSubParams (const SubtractiveParams& params)
     {
         playback.updatePreviewSubParams (params);
+    }
+
+    void triggerPreviewMinimoogNote (const MinimoogParams& params, double frequencyHz,
+                                     float velocity)
+    {
+        playback.triggerPreviewMinimoogNote (params, frequencyHz, velocity);
+    }
+
+    void updatePreviewMinimoogParams (const MinimoogParams& params)
+    {
+        playback.updatePreviewMinimoogParams (params);
     }
 
     void triggerPreviewWaveNote (const WavetableParams& params, double frequencyHz, float velocity)

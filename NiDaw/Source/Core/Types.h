@@ -278,6 +278,98 @@ struct SubtractiveParams
     bool operator== (const SubtractiveParams&) const = default;
 };
 
+//==============================================================================
+/** The Minimoog Model D instrument: three oscillators, noise, a 24 dB ladder
+    filter, two analogue-style contours, glide and the classic modulation mix.
+
+    Unlike the real machine this one can play polyphonically (the user asked for
+    it): `polyphony` is a performance setting, not part of a sound, so presets
+    leave it alone. `velocitySensitivity` is the same kind of extension.
+*/
+
+/** How many voices "unlimited" really gets. One ladder filter per voice is the
+    expensive part, and 64 of them for a single track is already generous. */
+constexpr int kMaxMinimoogVoices = 64;
+
+enum class MinimoogWave
+{
+    triangle = 0,
+    triSaw,        // the "triangle-sawtooth" position: a steep rise, slow fall
+    saw,
+    square,
+    widePulse,
+    narrowPulse
+};
+
+enum class MinimoogRange
+{
+    lo = 0,        // sub-audio / LFO territory
+    feet32,
+    feet16,
+    feet8,
+    feet4,
+    feet2
+};
+
+struct MinimoogOsc
+{
+    bool    enabled = true;
+    MinimoogWave wave = MinimoogWave::saw;
+    MinimoogRange range = MinimoogRange::feet8;
+    float   tuneSemitones = 0.0f;   // -7 .. +7 (oscillators 2 and 3)
+    float   level = 0.8f;           // 0 .. 1, mixer volume
+
+    bool operator== (const MinimoogOsc&) const = default;
+};
+
+struct MinimoogParams
+{
+    MinimoogParams()
+    {
+        // A fresh patch is one saw oscillator; the second and third are off
+        // until a sound or the player turns them on.
+        oscs[1].enabled = false;
+        oscs[1].level = 0.0f;
+        oscs[2].enabled = false;
+        oscs[2].level = 0.0f;
+    }
+
+    juce::String name;
+    std::array<MinimoogOsc, 3> oscs;
+    float noiseLevel = 0.0f;          // 0 .. 1
+    bool  noisePink  = false;
+    float masterTuneCents = 0.0f;     // -50 .. +50
+
+    /** 0 = monophonic (the real Model D: last-note priority and glide), 1..64 =
+        that many voices, -1 = as many as `kMaxMinimoogVoices` allows. */
+    int   polyphony = 0;
+    /** 0 .. 1; 0 makes the instrument ignore velocity entirely (the real one). */
+    float velocitySensitivity = 0.7f;
+
+    float glideSeconds = 0.0f;        // 0 .. 2; monophonic mode only
+    bool  glideOn = false;
+    float modMix = 0.0f;              // 0 = oscillator 3, 1 = noise
+    float modDepth = 0.0f;            // 0 .. 1, the mod wheel
+    bool  oscModOn = false;
+    bool  filterModOn = false;
+    /** false: oscillator 3 keeps the C4 reference instead of following the key. */
+    bool  osc3Control = true;
+
+    float filterCutoffHz = 800.0f;    // 10 .. 20000
+    float filterEmphasis = 0.0f;      // 0 .. 1
+    float filterContourOctaves = 4.0f;// 0 .. 8
+    bool  filterKeyTrack1 = false;    // keyboard control 1: one third
+    bool  filterKeyTrack2 = false;    // keyboard control 2: another third
+
+    float filterAttack = 0.005f, filterDecay = 0.4f;
+    bool  filterDecayShort = false, filterSustainOn = true;
+    float ampAttack = 0.005f, ampDecay = 0.3f;
+    bool  ampDecayShort = false, ampSustainOn = true, releaseOn = true;
+    float volume = 0.7f;              // 0 .. 1
+
+    bool operator== (const MinimoogParams&) const = default;
+};
+
 /** Frame length of a custom (user-made) wavetable, in samples: the same 2048 the
     built-in bank uses, so the mipmap builder and every drawing path are shared. */
 constexpr int kCustomWavetableFrameSize = 2048;
@@ -1049,7 +1141,10 @@ enum class TrackKind
         last so the serialised values of the kinds above never move. */
     granular,
     /** Serum-style three-layer instrument. */
-    hybrid
+    hybrid,
+    /** Minimoog Model D style monophonic/polyphonic analogue instrument. Appended
+        last so the serialised values of the kinds above never move. */
+    minimoog
 };
 
 /** The Chinese name of a track kind, used for the default track name and the
@@ -1067,6 +1162,7 @@ inline juce::String trackKindLabel (TrackKind kind)
         case TrackKind::vst:         return NI_TXT ("VST 乐器");
         case TrackKind::granular:    return NI_TXT ("粒子合成器");
         case TrackKind::hybrid:      return NI_TXT ("混合合成器");
+        case TrackKind::minimoog:    return NI_TXT ("迷你穆格");
     }
 
     return NI_TXT ("FM合成器");
@@ -1093,6 +1189,7 @@ struct InstrumentTrack
     VstParams         vst;
     GranularParams    granular;
     HybridParams      hybrid;
+    MinimoogParams    minimoog;
 
     /** The insert chain: instrument -> these, in order -> track fader. */
     std::vector<EffectSlot> effects;

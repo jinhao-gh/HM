@@ -667,3 +667,17 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 - 序列化：`synthParamsToVar`/`synthParamsFromVar` 写读 `classic`、`pitchEgRate/Level`、`lfoPitchModSens/lfoSync`，每个运算器写读 `mode/fixedHz/breakPoint/leftCurve/rightCurve/leftDepth/rightDepth/amSens`；缺 `classic` 的文件读成 false。
 - `Core/Dx7FactoryPresets.h` 由 `work/dx7-convert/generate3.py` 生成：`p.algorithm = 32 + 原厂编号`、`classicEngine = true`，并写入固定频率、键盘缩放、AM 灵敏度、音高 EG 与 LFO 设置。
 - 默认运算器包络为 `{99, 99, 99, 0}`（仍是 4 段、L4 = 0）；工厂预设显式覆盖，默认工程因此是常驻正弦而不是会衰减的短音。
+
+## 第六十九批 · Minimoog Model D 乐器
+
+- `TrackKind::minimoog` 追加在枚举末尾（序列化值 9），`InstrumentTrack::minimoog` 保存 `MinimoogParams`；`TrackRenderInfo` 与 `buildSchedule` 原样转发。
+- `Audio/MinimoogSynth.{h,cpp}`：`kMaxMinimoogVoices = 64` 预分配声部；单音模式用 `std::vector<HeldNote>` 做后按优先 + legato（无按住音时重触发，已有按住音只改目标音高）；复音模式按 `polyphony` 分配，优先空闲、其次已释放的最旧、最后最旧。滑音只在单音模式生效，log 频率指数逼近。
+- 振荡器：`MinimoogRange` 倍率 `lo=1/64, 32'=0.25, 16'=0.5, 8'=1, 4'=2, 2'=4`；`MinimoogWave` 六种，锯齿/方波/脉冲用 PolyBLEP，三角与斜三角用朴素形状；每个振荡器加 ±2 音分慢漂移。`osc3Control=false` 时振荡器 3 用 C4 参考频率，不跟随键盘。
+- 混音：`Σ level·sample + noise·level`，`tanh(1.5·x)/0.905` 过载；噪声白/粉（粉用两级一阶滤波近似）。
+- 滤波：自写 `minimoog::LadderFilter`，四节一阶低通 + 反馈 + 输入 tanh 饱和；`g = 1-exp(-2π·fc/sr)` 上限 0.85，反馈量 `4×emphasis`。截止 = 基础 × `2^(键盘跟随 + 滤波包络×包络量×力度因子 + 调制)`，clamp 10–20000。
+- 包络：自写指数包络（attack→decay→sustain→release），系数 `1-exp(-4/(T·sr))`；维持为固定 0.8，`DecayShort` 把衰减时间乘 0.1，释放 80 ms（关闭时 2 ms）。
+- 力度：`velGain = 1-sens + sens·(vel/127)^1.2`，乘输出并缩放滤波包络深度。
+- `Core/MinimoogPresets.h` 是 header-only 工厂库：30 个预设、6 类、每类 5；`applyPreset` 重置参数后保留当前 `polyphony` 与 `velocitySensitivity`。
+- 序列化：`minimoogParamsToVar/FromVar`、工程 `"minimoog"` 字段、预设库 `"minimoogPatches"` 段；`ProjectDocument` 的 kind clamp 到 0..9。
+- 预览：`PreviewKind::minimoog` 与 `triggerPreviewMinimoogNote/updatePreviewMinimoogParams`，编辑器键盘与旋钮试听走它。
+- 界面：`UI/MinimoogEditor.{h,cpp}`，设计尺寸 1120×680；`SynthWindow` 为它使用独立页宽高；`TrackArea` 的 + 菜单新增「迷你穆格」（id 10），新建时套「经典主音」。

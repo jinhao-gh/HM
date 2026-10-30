@@ -8572,28 +8572,94 @@ namespace selftest
 
             const auto items = sectionLanes.getAddMenuItemsForTest();
 
-            check (items.size() == 7, NI_TXT ("the + menu offers seven kinds (got ")
-                                         + juce::String ((int) items.size()) + ")");
+            check (items.size() == 8, NI_TXT ("the + menu offers eight kinds (got ")
+                                          + juce::String ((int) items.size()) + ")");
 
-            if (items.size() == 7)
+            if (items.size() == 8)
             {
                 check (items[0].first == NI_TXT ("混合合成器")
-                           && items[1].first == NI_TXT ("FM合成器")
-                           && items[2].first == NI_TXT ("鼓机")
-                           && items[3].first == NI_TXT ("采样器")
-                           && items[4].first == NI_TXT ("粒子合成器")
-                           && items[5].first == NI_TXT ("音频")
-                           && items[6].first == NI_TXT ("VST 乐器"),
-                        NI_TXT ("the entries name the seven kinds (got '")
+                           && items[1].first == NI_TXT ("迷你穆格")
+                           && items[2].first == NI_TXT ("FM合成器")
+                           && items[3].first == NI_TXT ("鼓机")
+                           && items[4].first == NI_TXT ("采样器")
+                           && items[5].first == NI_TXT ("粒子合成器")
+                           && items[6].first == NI_TXT ("音频")
+                           && items[7].first == NI_TXT ("VST 乐器"),
+                        NI_TXT ("the entries name the eight kinds (got '")
                            + items[0].first + "', '" + items[1].first + "', '"
                            + items[2].first + "', '" + items[3].first + "', '"
                            + items[4].first + "', '" + items[5].first + "', '"
-                           + items[6].first + "')");
+                           + items[6].first + "', '" + items[7].first + "')");
                 check (items[0].second && items[1].second && items[2].second
                            && items[3].second && items[4].second && items[5].second
-                           && items[6].second,
-                       NI_TXT ("all seven track kinds can be created"));
+                           && items[6].second && items[7].second,
+                       NI_TXT ("all eight track kinds can be created"));
             }
+        }
+
+        beginTest (NI_TXT ("the Minimoog instrument has its five-section panel"));
+
+        {
+            auto& sectionLanes = component.getTrackArea();
+            const auto miniId = sectionLanes.addTrack (TrackKind::minimoog);
+            pump();
+
+            auto* miniTrack = document.findTrack (miniId);
+            check (miniTrack != nullptr && miniTrack->kind == TrackKind::minimoog,
+                   NI_TXT ("the new-track entry makes a Minimoog track"));
+            check (miniTrack != nullptr && miniTrack->minimoog.name == NI_TXT ("经典主音"),
+                   NI_TXT ("a new Minimoog track starts on the classic lead (got '")
+                       + (miniTrack != nullptr ? miniTrack->minimoog.name : juce::String())
+                       + "')");
+
+            SynthWindow window (document, component.getAudioEngine(),
+                                component.getPresetStore(), false);
+            window.showForTrack (miniId, miniTrack != nullptr ? miniTrack->name
+                                                             : juce::String ("Mini"),
+                                 TrackKind::minimoog);
+            pump();
+
+            auto& editor = window.getMinimoogEditor();
+
+            auto sizedControls = 0;
+
+            for (int which = 1; which <= 20; ++which)
+            {
+                const auto bounds = editor.getControlBoundsForTest (which);
+
+                if (bounds.getWidth() > 0 && bounds.getHeight() > 0)
+                    ++sizedControls;
+            }
+
+            check (sizedControls == 20,
+                   NI_TXT ("the Minimoog panel lays out its controls (got ")
+                       + juce::String (sizedControls) + ")");
+
+            check (writeImage (snapshot (editor), outputDirectory.getChildFile ("62-minimoog.png")),
+                   "Minimoog editor snapshot");
+
+            const auto counts = editor.getPresetCountsForTest();
+            check (counts.first == 30, NI_TXT ("the Minimoog bank has 30 sounds (got ")
+                                            + juce::String (counts.first) + ")");
+
+            editor.selectPresetForTest (kBuiltInPresetIdBase + 2);   // 深潜贝斯
+            pump();
+
+            check (document.findTrack (miniId)->minimoog.name == NI_TXT ("深潜贝斯"),
+                   NI_TXT ("picking a Minimoog preset names the patch (got '")
+                       + document.findTrack (miniId)->minimoog.name + "')");
+
+            editor.setPolyphonyForTest (8);
+            pump();
+            check (editor.getPolyphonyForTest() == 8,
+                   NI_TXT ("the polyphony selector writes the voice count"));
+
+            editor.setParamForTest (3, -1.0);     // cutoff knob down
+            pump();
+            check (document.findTrack (miniId)->minimoog.filterCutoffHz < 400.0f,
+                   NI_TXT ("the cutoff knob writes back (got ")
+                       + juce::String (document.findTrack (miniId)->minimoog.filterCutoffHz, 1)
+                       + " Hz)");
         }
 
         beginTest (NI_TXT ("the hybrid instrument has a real four-slot FX page"));

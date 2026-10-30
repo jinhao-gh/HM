@@ -53,6 +53,7 @@ struct TrackRenderInfo
     WavetableParams   wavetable;
     GranularParams    granular;
     HybridParams      hybrid;
+    MinimoogParams    minimoog;
     std::array<std::shared_ptr<const LoadedSample>, 3> hybridSamples;
     std::array<std::array<std::shared_ptr<const wavetable::Wavetable>, 2>, 3> hybridWavetables;
     /** The project's own tables for this instrument's two oscillators, when they

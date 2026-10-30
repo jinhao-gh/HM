@@ -66,6 +66,8 @@ target_sources(NiDaw PRIVATE
     Source/Audio/SynthEngine.h
     Source/Audio/SamplePlayer.h
     Source/Audio/SubtractiveSynth.h
+    Source/Audio/MinimoogSynth.h
+    Source/Audio/MinimoogSynth.cpp
     Source/Audio/WavetableSynth.h
     Source/Audio/DrumSynth.h
     Source/Audio/GranularSynth.h
@@ -75,6 +77,7 @@ target_sources(NiDaw PRIVATE
     Source/Core/WavetableTables.h
     Source/Core/WavetableTables.cpp
     Source/Core/HybridPresets.h
+    Source/Core/MinimoogPresets.h
     Source/Core/WaveformPresets.h
     Source/Audio/AudioEngine.h
     Source/Audio/Exporter.h
@@ -126,6 +129,8 @@ target_sources(NiDaw PRIVATE
     Source/UI/SamplerEditor.cpp
     Source/UI/SubtractiveEditor.h
     Source/UI/SubtractiveEditor.cpp
+    Source/UI/MinimoogEditor.h
+    Source/UI/MinimoogEditor.cpp
     Source/UI/WavetableEditor.h
     Source/UI/WavetableEditor.cpp
     Source/UI/WavetableTableWindow.h
@@ -182,6 +187,7 @@ target_sources(NiDaw PRIVATE
     Source/Tests/ClipTests.cpp
     Source/Tests/SerializationTests.cpp
     Source/Tests/InstrumentTests.cpp
+    Source/Tests/MinimoogTests.cpp
     Source/Tests/PlaybackTests.cpp
     Source/Tests/PresetTests.cpp
     Source/Tests/PluginTests.cpp
@@ -295,6 +301,7 @@ target_sources(NiDawTests PRIVATE
     Source/Core/WindowPlacement.h
     Source/Core/MusicMath.h
     Source/Core/HybridPresets.h
+    Source/Core/MinimoogPresets.h
     Source/Core/WaveformPresets.h
     Source/Core/MidiArp.h
     Source/Core/KeyboardLayouts.h
@@ -307,6 +314,7 @@ target_sources(NiDawTests PRIVATE
     Source/Tests/ClipTests.cpp
     Source/Tests/SerializationTests.cpp
     Source/Tests/InstrumentTests.cpp
+    Source/Tests/MinimoogTests.cpp
     Source/Tests/PlaybackTests.cpp
     Source/Tests/PresetTests.cpp
     Source/Tests/PluginTests.cpp

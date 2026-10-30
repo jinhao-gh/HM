@@ -833,6 +833,123 @@ SubtractiveParams subtractiveParamsFromVar (const juce::var& v)
 }
 
 //==============================================================================
+juce::var minimoogParamsToVar (const MinimoogParams& s)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("name", s.name);
+
+    juce::Array<juce::var> oscs;
+
+    for (const auto& osc : s.oscs)
+    {
+        auto* oo = new juce::DynamicObject();
+        oo->setProperty ("enabled", osc.enabled);
+        oo->setProperty ("wave", (int) osc.wave);
+        oo->setProperty ("range", (int) osc.range);
+        oo->setProperty ("tuneSemitones", osc.tuneSemitones);
+        oo->setProperty ("level", osc.level);
+        oscs.add (juce::var (oo));
+    }
+
+    o->setProperty ("oscs", oscs);
+    o->setProperty ("noiseLevel", s.noiseLevel);
+    o->setProperty ("noisePink", s.noisePink);
+    o->setProperty ("masterTuneCents", s.masterTuneCents);
+    o->setProperty ("polyphony", s.polyphony);
+    o->setProperty ("velocitySensitivity", s.velocitySensitivity);
+
+    o->setProperty ("glideSeconds", s.glideSeconds);
+    o->setProperty ("glideOn", s.glideOn);
+    o->setProperty ("modMix", s.modMix);
+    o->setProperty ("modDepth", s.modDepth);
+    o->setProperty ("oscModOn", s.oscModOn);
+    o->setProperty ("filterModOn", s.filterModOn);
+    o->setProperty ("osc3Control", s.osc3Control);
+
+    o->setProperty ("filterCutoffHz", s.filterCutoffHz);
+    o->setProperty ("filterEmphasis", s.filterEmphasis);
+    o->setProperty ("filterContourOctaves", s.filterContourOctaves);
+    o->setProperty ("filterKeyTrack1", s.filterKeyTrack1);
+    o->setProperty ("filterKeyTrack2", s.filterKeyTrack2);
+
+    o->setProperty ("filterAttack", s.filterAttack);
+    o->setProperty ("filterDecay", s.filterDecay);
+    o->setProperty ("filterDecayShort", s.filterDecayShort);
+    o->setProperty ("filterSustainOn", s.filterSustainOn);
+
+    o->setProperty ("ampAttack", s.ampAttack);
+    o->setProperty ("ampDecay", s.ampDecay);
+    o->setProperty ("ampDecayShort", s.ampDecayShort);
+    o->setProperty ("ampSustainOn", s.ampSustainOn);
+    o->setProperty ("releaseOn", s.releaseOn);
+    o->setProperty ("volume", s.volume);
+
+    return juce::var (o);
+}
+
+MinimoogParams minimoogParamsFromVar (const juce::var& v)
+{
+    MinimoogParams s;
+    s.name = readString (v, "name", {});
+
+    if (auto* oscArray = v.getDynamicObject() != nullptr
+                             ? v.getDynamicObject()->getProperty ("oscs").getArray()
+                             : nullptr)
+    {
+        for (int i = 0; i < (int) s.oscs.size() && i < oscArray->size(); ++i)
+        {
+            const auto& ov = (*oscArray)[i];
+            auto& osc = s.oscs[(size_t) i];
+
+            osc.enabled = readBool (ov, "enabled", true);
+            osc.wave = (MinimoogWave) juce::jlimit (0, 5, readInt (ov, "wave", 2));
+            osc.range = (MinimoogRange) juce::jlimit (0, 5, readInt (ov, "range", 3));
+            osc.tuneSemitones = (float) juce::jlimit (-7.0, 7.0,
+                                                      readDouble (ov, "tuneSemitones", 0.0));
+            osc.level = (float) juce::jlimit (0.0, 1.0, readDouble (ov, "level", 0.8));
+        }
+    }
+
+    s.noiseLevel = (float) juce::jlimit (0.0, 1.0, readDouble (v, "noiseLevel", 0.0));
+    s.noisePink = readBool (v, "noisePink", false);
+    s.masterTuneCents = (float) juce::jlimit (-50.0, 50.0,
+                                              readDouble (v, "masterTuneCents", 0.0));
+    s.polyphony = juce::jlimit (-1, kMaxMinimoogVoices, readInt (v, "polyphony", 0));
+    s.velocitySensitivity = (float) juce::jlimit (0.0, 1.0,
+                                                  readDouble (v, "velocitySensitivity", 0.7));
+
+    s.glideSeconds = (float) juce::jlimit (0.0, 2.0, readDouble (v, "glideSeconds", 0.0));
+    s.glideOn = readBool (v, "glideOn", false);
+    s.modMix = (float) juce::jlimit (0.0, 1.0, readDouble (v, "modMix", 0.0));
+    s.modDepth = (float) juce::jlimit (0.0, 1.0, readDouble (v, "modDepth", 0.0));
+    s.oscModOn = readBool (v, "oscModOn", false);
+    s.filterModOn = readBool (v, "filterModOn", false);
+    s.osc3Control = readBool (v, "osc3Control", true);
+
+    s.filterCutoffHz = (float) juce::jlimit (10.0, 20000.0,
+                                             readDouble (v, "filterCutoffHz", 800.0));
+    s.filterEmphasis = (float) juce::jlimit (0.0, 1.0, readDouble (v, "filterEmphasis", 0.0));
+    s.filterContourOctaves = (float) juce::jlimit (0.0, 8.0,
+                                                   readDouble (v, "filterContourOctaves", 4.0));
+    s.filterKeyTrack1 = readBool (v, "filterKeyTrack1", false);
+    s.filterKeyTrack2 = readBool (v, "filterKeyTrack2", false);
+
+    s.filterAttack = (float) juce::jlimit (0.001, 20.0, readDouble (v, "filterAttack", 0.005));
+    s.filterDecay = (float) juce::jlimit (0.001, 20.0, readDouble (v, "filterDecay", 0.4));
+    s.filterDecayShort = readBool (v, "filterDecayShort", false);
+    s.filterSustainOn = readBool (v, "filterSustainOn", true);
+
+    s.ampAttack = (float) juce::jlimit (0.001, 20.0, readDouble (v, "ampAttack", 0.005));
+    s.ampDecay = (float) juce::jlimit (0.001, 20.0, readDouble (v, "ampDecay", 0.3));
+    s.ampDecayShort = readBool (v, "ampDecayShort", false);
+    s.ampSustainOn = readBool (v, "ampSustainOn", true);
+    s.releaseOn = readBool (v, "releaseOn", true);
+    s.volume = (float) juce::jlimit (0.0, 1.0, readDouble (v, "volume", 0.7));
+
+    return s;
+}
+
+//==============================================================================
 juce::var wavetableParamsToVar (const WavetableParams& s)
 {
     auto* o = new juce::DynamicObject();
@@ -1453,6 +1570,7 @@ bool PresetStore::load()
     fmPresets.clear();
     samplerPresets.clear();
     subtractivePresets.clear();
+    minimoogPresets.clear();
     wavetablePresets.clear();
     drumPresets.clear();
     granularPresets.clear();
@@ -1500,6 +1618,10 @@ bool PresetStore::load()
     if (const auto* array = object->getProperty ("subtractivePatches").getArray())
         for (const auto& entry : *array)
             subtractivePresets.push_back (subtractiveParamsFromVar (entry));
+
+    if (const auto* array = object->getProperty ("minimoogPatches").getArray())
+        for (const auto& entry : *array)
+            minimoogPresets.push_back (minimoogParamsFromVar (entry));
 
     if (const auto* array = object->getProperty ("wavetablePatches").getArray())
         for (const auto& entry : *array)
@@ -1590,6 +1712,13 @@ bool PresetStore::save() const
         subtractivePatches.add (subtractiveParamsToVar (preset));
 
     root->setProperty ("subtractivePatches", subtractivePatches);
+
+    juce::Array<juce::var> minimoogPatches;
+
+    for (const auto& preset : minimoogPresets)
+        minimoogPatches.add (minimoogParamsToVar (preset));
+
+    root->setProperty ("minimoogPatches", minimoogPatches);
 
     juce::Array<juce::var> wavetablePatches;
 
@@ -1899,6 +2028,52 @@ void PresetStore::removeSubtractivePreset (int index)
     if (index >= 0 && index < (int) subtractivePresets.size())
     {
         subtractivePresets.erase (subtractivePresets.begin() + index);
+        save();
+    }
+}
+
+int PresetStore::findMinimoogPresetByName (const juce::String& name) const
+{
+    for (int i = 0; i < (int) minimoogPresets.size(); ++i)
+        if (minimoogPresets[(size_t) i].name == name)
+            return i;
+
+    return -1;
+}
+
+void PresetStore::addMinimoogPreset (MinimoogParams preset)
+{
+    if (preset.name.isEmpty())
+        preset.name = NI_TXT ("我的迷你穆格音色 ")
+                          + juce::String ((int) minimoogPresets.size() + 1);
+
+    minimoogPresets.push_back (std::move (preset));
+    save();
+}
+
+void PresetStore::replaceMinimoogPreset (int index, MinimoogParams preset)
+{
+    if (index >= 0 && index < (int) minimoogPresets.size())
+    {
+        minimoogPresets[(size_t) index] = std::move (preset);
+        save();
+    }
+}
+
+void PresetStore::renameMinimoogPreset (int index, const juce::String& newName)
+{
+    if (index >= 0 && index < (int) minimoogPresets.size() && newName.isNotEmpty())
+    {
+        minimoogPresets[(size_t) index].name = newName;
+        save();
+    }
+}
+
+void PresetStore::removeMinimoogPreset (int index)
+{
+    if (index >= 0 && index < (int) minimoogPresets.size())
+    {
+        minimoogPresets.erase (minimoogPresets.begin() + index);
         save();
     }
 }

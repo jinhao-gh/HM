@@ -140,7 +140,8 @@ all-notes-off 只发给在响的通道），并新增 `%APPDATA%\NiDaw\plugin-ev
 第四十一批（**MIDI 输入 + 录制 + 片段重叠**，分三步做完）：
 
 - **映射与发声**：`Core/MidiInputMap.{h,cpp}` 是纯逻辑（循环模式一格 `loopKeys` 个半音
-  **上下平铺**、非循环模式逐音号、`0` = 空、`isSame` / `noteName`），
+  **上下平铺**、非循环模式逐音号、`0` = 空、`isSame` / 
+oteName`），
   `Audio/MidiInputManager.{h,cpp}` 管设备（枚举 / 打开 / 关闭，选择写
   `%APPDATA%\NiDaw\midi.json`，回调里只认 note-on / note-off / CC123，并 `callAsync` 到消息线程）。
   映射随工程保存（`Project::midiInput` → `.nprj` 的 `midiInput` 段，两个方向都读得回来），
@@ -206,7 +207,8 @@ all-notes-off 只发给在响的通道），并新增 `%APPDATA%\NiDaw\plugin-ev
   `analyseHarmonics`（加法合成 / FFT 分析，编辑器的谐波条）、`dataHash`、`sameData`、
   `buildCustomTable`（**mipmap 是派生数据**，由 `wavetable::buildTableFromFrames` 生成，
   内置库与自定义表共用同一段 FFT 截断代码）。
-- **工程自包含**：`Project::customWavetables` + `nextCustomWavetableId`，`.nprj` 新增
+- **工程自包含**：`Project::customWavetables` + 
+extCustomWavetableId`，`.nprj` 新增
   `customWavetables` 段（base64 的 16 位 PCM，为空时一个字段都不写）；`WavetableOsc`
   新增 `customTableId`（0 = 用内置 `tableIndex`，缺字段读 0）。**旧工程照常打开**。
 - **引擎**：`TrackRenderInfo::wavetables`（两个 `shared_ptr<const Wavetable>`，与 `sample`
@@ -218,7 +220,8 @@ all-notes-off 只发给在响的通道），并新增 `%APPDATA%\NiDaw\plugin-ev
   经 `WindowPlacement`）：名字 / 帧数 / 导入 WAV… / 从片段取样… / 拷内置… / 试听 C4 /
   删除这张表；可画的大画布（铅笔、Shift 直线）、1–8 帧缩略图、**谐波条 + 应用**
   （进入时用 FFT 分析当前帧，改完反向合成为这一帧）。**一次手势一条撤销**（`beginEdit` +
-  `notifyEdit`），离散命令各一条 `applyEdit`。取样只认**当前打开在编辑栏里的音频片段**，
+  
+otifyEdit`），离散命令各一条 `applyEdit`。取样只认**当前打开在编辑栏里的音频片段**，
   不是音频片段时只提示、不建表；删除一张表时引用它的振荡器退回内置。
 - **预设**：`PresetStore` 的波表条目升为 `WavetablePatch{ params, tables }`（`getWavetablePatches`），
   保存时把它引用到的自定义表一起写，载入时按「名字 + 数据」在工程里复用或新建一张再把
@@ -300,7 +303,8 @@ all-notes-off 只发给在响的通道），并新增 `%APPDATA%\NiDaw\plugin-ev
   （`VirtualKeyboardWindow::getDefaultSettingsFile`，自检用 `setSettingsFileForTesting` 指路）。
 - **巴扬模式**：新 `Core/KeyboardLayouts.{h,cpp}` 是**键位、图示、钢琴字母共用的一张表**——
   `physicalBoard()` 的 44 个键帽（真实错位、`⌫` 两格宽）、`capsFor(layout)`、
-  `baseNoteFor` / `bassNoteFor` / `noteForCap` / `keyLettersFor`。旋律排三排按列各三个半音
+  `baseNoteFor` / `bassNoteFor` / 
+oteForCap` / `keyLettersFor`。旋律排三排按列各三个半音
   （`q a z w s x…/` 一路半音往上，`w` = C4）；**低音排**是数字排那 14 个键（这里是最初的
   "折返在 C2–C4"版；**第四十九批起改成固定的上五度 / 下四度偏移表**，整排 C#3–F#4：
   `5` = F3、`6` = C4、`7` = G3）。两排各有独立的移位（旋律 半音 ±1 / 八度 ±12；
@@ -530,7 +534,8 @@ work\make_release.bat
   效果器窗口都能继续弹；只有整个程序切到后台、或焦点进入文本框时才停止并放掉按住的音。
 - `MainComponent::keyStateChanged` 把任意 HM 窗口的按键状态变化转发给面板（立即轮询一次），
   30 Hz 轮询仍是兜底。
-- 虚拟键盘在屏幕上时，当前布局映射为音符的键不再触发单键快捷键（`n`、巴扬的 Backspace 等），
+- 虚拟键盘在屏幕上时，当前布局映射为音符的键不再触发单键快捷键（
+`、巴扬的 Backspace 等），
   窗口关掉立刻恢复；判断走面板的 `isTypingKey`。
 - 新增测试钩子：`setApplicationForegroundForTest`、`typingIsLiveForTest`。
 - 实测基线：单元测试 **37 组 / 5528 条**；离屏自检 **1488 项 / 61 张快照**；VST3 / VST3FX 通过。
@@ -577,8 +582,9 @@ work\make_release.bat
   （tanh 饱和 + 反馈）、滤波/响度指数包络、振荡器 3 与噪声的调制混合、滑音。
 - 演奏：单音后按优先 + legato 为默认；复音数可选 2/4/8/16/32/不限（上限 64）；力度 0–10 可调，
   0 时还原原机忽略力度。复音数/力度是演奏设置，`applyPreset` 不覆盖。
-- 面板：五段式 CONTROLLERS / OSCILLATOR BANK / MIXER / MODIFIERS / OUTPUT，深色 + 木纹侧板；
-  顶部 HM 扩展条（复音数、力度、预设栏），底部 C2–C6 键盘；外部输入/A-440/耳机为禁用装饰。
+- 面板：按实机照片排布的五段式「控制器 / 振荡器组 / 混音器 / 修饰器 / 输出」，深色 + 木纹边框；
+  顶部 HM 扩展条（复音数、力度、预设栏），底部左侧 LFO/滑音/衰减/PITCH/MOD 轮 + 右侧 C2–C6 键盘；
+  外部输入/A-440/耳机/电源/LFO 速率/OSC3 包络/噪声 LFO 为禁用装饰。
 - 预设：30 个、6 类各 5，中文名；新建轨道默认「经典主音」。
 - 实测基线：单元测试 **38 组 / 6395 条**；离屏自检 **1506 项 / 64 张快照**；VST3 / VST3FX 通过。
 - 已知取舍：包络“维持”是固定 0.8 平台（原机只有开关）；PITCH 轮只弯试听；复音模式不做滑音；

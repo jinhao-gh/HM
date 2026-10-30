@@ -875,12 +875,14 @@ juce::var minimoogParamsToVar (const MinimoogParams& s)
     o->setProperty ("filterAttack", s.filterAttack);
     o->setProperty ("filterDecay", s.filterDecay);
     o->setProperty ("filterDecayShort", s.filterDecayShort);
-    o->setProperty ("filterSustainOn", s.filterSustainOn);
+    o->setProperty ("filterSustainLevel", s.filterSustainLevel);
+    o->setProperty ("filterSustainOn", s.filterSustainLevel > 0.0f);
 
     o->setProperty ("ampAttack", s.ampAttack);
     o->setProperty ("ampDecay", s.ampDecay);
     o->setProperty ("ampDecayShort", s.ampDecayShort);
-    o->setProperty ("ampSustainOn", s.ampSustainOn);
+    o->setProperty ("ampSustainLevel", s.ampSustainLevel);
+    o->setProperty ("ampSustainOn", s.ampSustainLevel > 0.0f);
     o->setProperty ("releaseOn", s.releaseOn);
     o->setProperty ("volume", s.volume);
 
@@ -937,12 +939,12 @@ MinimoogParams minimoogParamsFromVar (const juce::var& v)
     s.filterAttack = (float) juce::jlimit (0.001, 20.0, readDouble (v, "filterAttack", 0.005));
     s.filterDecay = (float) juce::jlimit (0.001, 20.0, readDouble (v, "filterDecay", 0.4));
     s.filterDecayShort = readBool (v, "filterDecayShort", false);
-    s.filterSustainOn = readBool (v, "filterSustainOn", true);
+    s.filterSustainLevel = (float) juce::jlimit (0.0, 1.0, readDouble (v, "filterSustainLevel", readBool (v, "filterSustainOn", true) ? 0.8 : 0.0));
 
     s.ampAttack = (float) juce::jlimit (0.001, 20.0, readDouble (v, "ampAttack", 0.005));
     s.ampDecay = (float) juce::jlimit (0.001, 20.0, readDouble (v, "ampDecay", 0.3));
     s.ampDecayShort = readBool (v, "ampDecayShort", false);
-    s.ampSustainOn = readBool (v, "ampSustainOn", true);
+    s.ampSustainLevel = (float) juce::jlimit (0.0, 1.0, readDouble (v, "ampSustainLevel", readBool (v, "ampSustainOn", true) ? 0.8 : 0.0));
     s.releaseOn = readBool (v, "releaseOn", true);
     s.volume = (float) juce::jlimit (0.0, 1.0, readDouble (v, "volume", 0.7));
 

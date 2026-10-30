@@ -38,11 +38,11 @@ public:
         p.filterAttack = 0.001f;
         p.filterDecay = 0.001f;
         p.filterDecayShort = true;
-        p.filterSustainOn = true;
+        p.filterSustainLevel = 0.8f;
         p.ampAttack = 0.001f;
         p.ampDecay = 0.001f;
         p.ampDecayShort = true;
-        p.ampSustainOn = true;
+        p.ampSustainLevel = 0.8f;
         p.releaseOn = true;
         p.volume = 0.7f;
         return p;
@@ -292,7 +292,7 @@ public:
                 params.filterContourOctaves = contour;
                 params.filterAttack = 0.001f;
                 params.filterDecay = 0.001f;
-                params.filterSustainOn = true;
+                params.filterSustainLevel = 0.8f;
 
                 MinimoogSynth synth;
                 synth.prepare (sampleRate);
@@ -423,7 +423,7 @@ public:
             params.filterContourOctaves = 2.5f;
             params.filterKeyTrack1 = true;
             params.filterDecayShort = true;
-            params.ampSustainOn = false;
+            params.ampSustainLevel = 0.0f;
             params.releaseOn = false;
             params.volume = 0.4f;
 

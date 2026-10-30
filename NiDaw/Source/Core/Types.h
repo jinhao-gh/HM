@@ -362,9 +362,11 @@ struct MinimoogParams
     bool  filterKeyTrack2 = false;    // keyboard control 2: another third
 
     float filterAttack = 0.005f, filterDecay = 0.4f;
-    bool  filterDecayShort = false, filterSustainOn = true;
+    bool  filterDecayShort = false;
+    float filterSustainLevel = 0.8f;   // 0 .. 1
     float ampAttack = 0.005f, ampDecay = 0.3f;
-    bool  ampDecayShort = false, ampSustainOn = true, releaseOn = true;
+    bool  ampDecayShort = false, releaseOn = true;
+    float ampSustainLevel = 0.8f;      // 0 .. 1
     float volume = 0.7f;              // 0 .. 1
 
     bool operator== (const MinimoogParams&) const = default;

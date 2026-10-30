@@ -116,7 +116,7 @@ public:
     ~MinimoogEditor() override;
 
     static constexpr int kDesignWidth  = 1120;
-    static constexpr int kDesignHeight = 680;
+    static constexpr int kDesignHeight = 760;
 
     void setTrack (juce::int64 newTrackId);
     juce::int64 getTrackId() const noexcept { return trackId; }
@@ -210,10 +210,14 @@ private:
 
     juce::Slider cutoff, emphasis, contour;
     MinimoogRocker keyTrack1, keyTrack2;
-    juce::Slider filterAttack, filterDecay;
-    MinimoogRocker filterDecayShort, filterSustain;
-    juce::Slider ampAttack, ampDecay;
-    MinimoogRocker ampDecayShort, ampSustain, releaseSwitch;
+    juce::Slider filterAttack, filterDecay, filterSustainLevel;
+    juce::Slider ampAttack, ampDecay, ampSustainLevel;
+    MinimoogRocker releaseSwitch;
+
+    /** Controls the real panel has but this engine does not drive (yet). They are
+        drawn dimmed so the layout stays complete. */
+    MinimoogRocker osc3FilterEg, noiseLfo, externalInputOn, a440, power;
+    juce::Slider externalInputVolume, lfoRate;
 
     juce::Slider volume;
     MinimoogRocker mainOut;
@@ -223,7 +227,7 @@ private:
 
     std::vector<PrintedLabel> printedLabels;
     juce::Rectangle<int> panelArea, controllersArea, oscillatorArea, mixerArea;
-    juce::Rectangle<int> modifiersArea, outputArea;
+    juce::Rectangle<int> modifiersArea, outputArea, keyboardArea;
 
     int previewMidiNote = -1;
     bool updating = false;

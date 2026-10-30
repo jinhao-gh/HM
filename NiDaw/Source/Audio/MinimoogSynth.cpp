@@ -68,7 +68,7 @@ float MinimoogSynth::Envelope::next() noexcept
 
         case Stage::decay:
         {
-            const auto target = sustainOn ? 0.8f : 0.0f;
+            const auto target = juce::jlimit (0.0f, 1.0f, sustainLevel);
             level += (target - level) * decayCoef;
 
             if (std::abs (level - target) < 0.002f)
@@ -80,7 +80,7 @@ float MinimoogSynth::Envelope::next() noexcept
         }
 
         case Stage::sustain:
-            level = sustainOn ? 0.8f : 0.0f;
+            level = juce::jlimit (0.0f, 1.0f, sustainLevel);
             break;
 
         case Stage::release:
@@ -154,14 +154,14 @@ void MinimoogSynth::configureEnvelopes (Voice& voice)
     voice.ampEnv.attack = params.ampAttack;
     voice.ampEnv.decay = params.ampDecay;
     voice.ampEnv.decayShort = params.ampDecayShort;
-    voice.ampEnv.sustainOn = params.ampSustainOn;
+    voice.ampEnv.sustainLevel = params.ampSustainLevel;
     voice.ampEnv.releaseOn = params.releaseOn;
     voice.ampEnv.configure();
 
     voice.filterEnv.attack = params.filterAttack;
     voice.filterEnv.decay = params.filterDecay;
     voice.filterEnv.decayShort = params.filterDecayShort;
-    voice.filterEnv.sustainOn = params.filterSustainOn;
+    voice.filterEnv.sustainLevel = params.filterSustainLevel;
     voice.filterEnv.releaseOn = true;
     voice.filterEnv.configure();
 }

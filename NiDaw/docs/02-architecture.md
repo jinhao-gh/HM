@@ -675,7 +675,7 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 - 振荡器：`MinimoogRange` 倍率 `lo=1/64, 32'=0.25, 16'=0.5, 8'=1, 4'=2, 2'=4`；`MinimoogWave` 六种，锯齿/方波/脉冲用 PolyBLEP，三角与斜三角用朴素形状；每个振荡器加 ±2 音分慢漂移。`osc3Control=false` 时振荡器 3 用 C4 参考频率，不跟随键盘。
 - 混音：`Σ level·sample + noise·level`，`tanh(1.5·x)/0.905` 过载；噪声白/粉（粉用两级一阶滤波近似）。
 - 滤波：自写 `minimoog::LadderFilter`，四节一阶低通 + 反馈 + 输入 tanh 饱和；`g = 1-exp(-2π·fc/sr)` 上限 0.85，反馈量 `4×emphasis`。截止 = 基础 × `2^(键盘跟随 + 滤波包络×包络量×力度因子 + 调制)`，clamp 10–20000。
-- 包络：自写指数包络（attack→decay→sustain→release），系数 `1-exp(-4/(T·sr))`；维持为固定 0.8，`DecayShort` 把衰减时间乘 0.1，释放 80 ms（关闭时 2 ms）。
+- 包络：自写指数包络（attack→decay→sustain→release），系数 `1-exp(-4/(T·sr))`；延音为 0..1 的可调电平（`filterSustainLevel` / `ampSustainLevel`，界面 0–10 旋钮），`DecayShort` 把衰减时间乘 0.1，释放 80 ms（关闭时 2 ms）。
 - 力度：`velGain = 1-sens + sens·(vel/127)^1.2`，乘输出并缩放滤波包络深度。
 - `Core/MinimoogPresets.h` 是 header-only 工厂库：30 个预设、6 类、每类 5；`applyPreset` 重置参数后保留当前 `polyphony` 与 `velocitySensitivity`。
 - 序列化：`minimoogParamsToVar/FromVar`、工程 `"minimoog"` 字段、预设库 `"minimoogPatches"` 段；`ProjectDocument` 的 kind clamp 到 0..9。

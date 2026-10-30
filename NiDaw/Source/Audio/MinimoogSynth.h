@@ -181,7 +181,7 @@ private:
         float level = 0.0f;
         float attack = 0.005f;
         float decay = 0.3f;
-        bool  sustainOn = true;
+        float sustainLevel = 0.8f;
         bool  decayShort = false;
         bool  releaseOn = true;
         double sampleRate = 48000.0;

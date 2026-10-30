@@ -38,7 +38,7 @@ inline void filterEnv (MinimoogParams& p, float attack, float decay, bool shortD
     p.filterAttack = attack;
     p.filterDecay = decay;
     p.filterDecayShort = shortDecay;
-    p.filterSustainOn = sustainOn;
+    p.filterSustainLevel = sustainOn ? 0.8f : 0.0f;
 }
 
 inline void ampEnv (MinimoogParams& p, float attack, float decay, bool shortDecay,
@@ -47,7 +47,7 @@ inline void ampEnv (MinimoogParams& p, float attack, float decay, bool shortDeca
     p.ampAttack = attack;
     p.ampDecay = decay;
     p.ampDecayShort = shortDecay;
-    p.ampSustainOn = sustainOn;
+    p.ampSustainLevel = sustainOn ? 0.8f : 0.0f;
     p.releaseOn = releaseOn;
 }
 

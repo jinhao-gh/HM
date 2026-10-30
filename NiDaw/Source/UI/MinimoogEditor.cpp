@@ -314,16 +314,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
         rocker.onChange = [commit] (bool) { commit ("迷你穆格开关"); };
     };
 
-    auto setupDisabledRocker = [this] (MinimoogRocker& rocker, const juce::String& on,
-                                       const juce::String& off)
-    {
-        addAndMakeVisible (rocker);
-        rocker.setLabels (on, off);
-        rocker.setState (false, false);
-        rocker.setEnabled (false);
-        rocker.setAlpha (0.45f);
-    };
-
     for (int i = 0; i < 3; ++i)
     {
         auto& range = rangeSwitch[i];
@@ -362,8 +352,8 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
     setupRocker (keyTrack1, NI_TXT ("开"), NI_TXT ("关"), false);
     setupRocker (keyTrack2, NI_TXT ("开"), NI_TXT ("关"), false);
     setupRocker (releaseSwitch, NI_TXT ("开"), NI_TXT ("关"), true);
-    setupDisabledRocker (osc3FilterEg, NI_TXT ("开"), NI_TXT ("关"));
-    setupDisabledRocker (noiseLfo, NI_TXT ("开"), NI_TXT ("关"));
+    setupRocker (osc3FilterEg, NI_TXT ("开"), NI_TXT ("关"), false);
+    setupRocker (noiseLfo, NI_TXT ("开"), NI_TXT ("关"), false);
 
     addAndMakeVisible (masterTune);
     configureKnob (masterTune, -50.0, 50.0, 1.0, 0.0);
@@ -548,6 +538,8 @@ void MinimoogEditor::updateControlsFromTrack()
     unison.setState (p.unison, false);
     osc3Control.setState (p.osc3Control, false);
     distortionOn.setState (p.distortionOn, false);
+    osc3FilterEg.setState (p.osc3FilterEg, false);
+    noiseLfo.setState (p.noiseLfo, false);
     masterTune.setValue (p.masterTuneCents, juce::dontSendNotification);
     glideKnob.setValue (secondsToKnob (p.glideSeconds), juce::dontSendNotification);
     modMix.setValue ((double) p.modMix * 10.0, juce::dontSendNotification);
@@ -624,6 +616,8 @@ void MinimoogEditor::pushCurrentParams()
     p.unison = unison.getState();
     p.osc3Control = osc3Control.getState();
     p.distortionOn = distortionOn.getState();
+    p.osc3FilterEg = osc3FilterEg.getState();
+    p.noiseLfo = noiseLfo.getState();
     p.masterTuneCents = (float) masterTune.getValue();
     p.glideSeconds = knobToSeconds ((float) glideKnob.getValue());
     p.glideOn = p.glideSeconds > 0.001f;
@@ -754,7 +748,7 @@ void MinimoogEditor::resized()
         placeSwitch (egArea, osc3FilterEg, NI_TXT ("OSC3 包络"));
         switches.removeFromLeft (10);
         auto noiseArea = switches.removeFromLeft (66);
-        placeSwitch (noiseArea, noiseLfo, NI_TXT ("噪声"));
+        placeSwitch (noiseArea, noiseLfo, NI_TXT ("噪声 LFO"));
     }
 
     // ---- 振荡器组 ----------------------------------------------------------
@@ -1183,6 +1177,9 @@ juce::Rectangle<int> MinimoogEditor::getControlBoundsForTest (int which) const
         case 19: return keyTrack1.getBounds();
         case 20: return releaseSwitch.getBounds();
         case 21: return glideKnob.getBounds();
+        case 22: return osc3FilterEg.getBounds();
+        case 23: return noiseLfo.getBounds();
+        case 24: return unison.getBounds();
         default: break;
     }
 

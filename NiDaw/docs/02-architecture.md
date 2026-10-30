@@ -689,3 +689,10 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 - 界面：1120×620，四栏（控制器/振荡器组/混音器/修饰器），顶部栏放复音数、力度、主音量滑条与预设栏；移除键盘区、弯音/调制轮与输出栏。
 - 波形开关 `setShowLabels(false)`，当前波形名由 `waveName` 标签画在旋钮上方；粗调/细调/波形、失真量、齐奏等中文标签。
 - 滑音没有独立开关：`pushCurrentParams` 用 `glideSeconds > 0.001` 写 `glideOn`。
+
+## 第七十一批 · OSC3 包络与噪声 LFO
+
+- `osc3FilterEg`：`osc3` 频率乘以 `2^(filterEnvLevel × min(4, filterContourOctaves))`，三份齐奏副本共用同一个包络偏移；包络在起音后衰减，因此 osc3 的音高随滤波包络下扫。
+- `noiseLfo`：每个声部有 `lfoState`，按 `1 - exp(-2π×4/sr)` 对白噪声做一阶低通，乘 3 并限幅到 ±1；`modSource` 用这个慢随机值替换音频噪声，混音路径仍用原来的白/粉噪声。
+- 两个开关写入 `MinimoogParams` 与 `minimoogPatches` JSON；界面从「禁用装饰」改为可点击的拨杆（OSC3 包络 / 噪声 LFO）。
+

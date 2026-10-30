@@ -427,6 +427,7 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
     const auto glideCoefficient = 1.0 - std::exp (-4.0 / (juce::jmax (0.001f, params.glideSeconds)
                                                          * sampleRate));
     const auto isMono = params.polyphony == 0;
+    const auto lfoCoefficient = 1.0 - std::exp (-kTwoPi * 4.0 / sampleRate);
     const auto unisonCount = params.unison ? 3 : 1;
     static constexpr double kUnisonDetune[3] = { -0.07, 0.0, 0.07 };
 
@@ -453,7 +454,11 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
         // ---- oscillator 3 first: it can be the modulation source -----------
         auto& o3 = params.oscs[2];
         double sample3 = 0.0;
-        const auto base3 = params.osc3Control ? voice.currentHz : 261.6255653;
+        const auto osc3Eg = params.osc3FilterEg
+                                ? std::pow (2.0, (double) filterEnvLevel
+                                                     * juce::jmin (4.0f, params.filterContourOctaves))
+                                : 1.0;
+        const auto base3 = (params.osc3Control ? voice.currentHz : 261.6255653) * osc3Eg;
 
         for (int u = 0; u < unisonCount; ++u)
         {
@@ -476,8 +481,13 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
         const auto pink = (white + voice.pinkStateA * 2.0 + voice.pinkStateB * 3.0) * 0.18;
         const auto noise = params.noisePink ? pink : white;
 
+        // Slow random LFO for the NOISE/LFO switch: a low-passed noise source.
+        voice.lfoState += (white - voice.lfoState) * lfoCoefficient;
+        const auto slowNoise = juce::jlimit (-1.0, 1.0, voice.lfoState * 3.0);
+        const auto modNoise = params.noiseLfo ? slowNoise : noise;
+
         // ---- modulation ----------------------------------------------------
-        const auto modSource = sample3 + (noise - sample3) * params.modMix;
+        const auto modSource = sample3 + (modNoise - sample3) * params.modMix;
         const auto pitchMod = params.oscModOn
                                   ? std::pow (2.0, modSource * params.modDepth * 2.0 / 12.0)
                                   : 1.0;

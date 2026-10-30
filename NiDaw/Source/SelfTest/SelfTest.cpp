@@ -9573,6 +9573,7 @@ namespace selftest
                            NI_TXT ("再改回 8 帧"));
 
                     // ---- 拷内置 ----------------------------------------------
+                    const auto tablesBeforeCopy = wtProject->customWavetables.size();
                     component.copyBuiltInWavetable (5);
                     pump();
 
@@ -9587,8 +9588,8 @@ namespace selftest
                            NI_TXT ("「拷内置…」变成了第二张自定义表（「")
                                + (secondTable != nullptr ? secondTable->name : juce::String())
                                + NI_TXT ("」）"));
-                    check (wtProject->customWavetables.size() == 2,
-                           NI_TXT ("工程里现在有两张自定义表（实际 ")
+                    check (wtProject->customWavetables.size() == tablesBeforeCopy + 1,
+                           NI_TXT ("「拷内置…」只新增一张自定义表（实际 ")
                                + juce::String ((int) wtProject->customWavetables.size()) + NI_TXT (" 张）"));
                     check (wtWindow->getPanel().getTableId() == secondTableId,
                            NI_TXT ("窗口跟着切到新做的那张表"));

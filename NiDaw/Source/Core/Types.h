@@ -356,6 +356,10 @@ struct MinimoogParams
     float distortion = 0.0f;
     bool  distortionOn = false;
     bool  oscModOn = false;
+    /** Filter envelope adds to oscillator 3 pitch (the OSC.3 FILTER EG switch). */
+    bool  osc3FilterEg = false;
+    /** The modulation bus uses slow random noise instead of audio noise (NOISE/LFO). */
+    bool  noiseLfo = false;
     bool  filterModOn = false;
     /** false: oscillator 3 keeps the C4 reference instead of following the key. */
     bool  osc3Control = true;

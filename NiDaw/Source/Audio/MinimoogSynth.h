@@ -227,6 +227,7 @@ private:
         minimoog::LadderFilter filter;
 
         double pinkStateA = 0.0, pinkStateB = 0.0;
+        double lfoState = 0.0;
     };
 
     void startVoice (Voice& voice, juce::int64 noteId, double hz, float velocity);

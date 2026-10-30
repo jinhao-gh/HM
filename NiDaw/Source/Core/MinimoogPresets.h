@@ -172,6 +172,7 @@ inline void whistleLead (MinimoogParams& p)
     ampEnv (p, 0.060f, 0.60f, false, true);
     glide (p, 0.15f);
     p.volume = 0.68f;
+    p.osc3FilterEg = true;
 }
 
 inline void emersonLead (MinimoogParams& p)
@@ -259,6 +260,7 @@ inline void stormPad (MinimoogParams& p)
     ampEnv (p, 2.00f, 4.00f, false, true);
     modulation (p, 1.0f, 0.25f, false, true);
     p.volume = 0.55f;
+    p.noiseLfo = true;
 }
 
 inline void brassEnsemble (MinimoogParams& p)
@@ -379,6 +381,7 @@ inline void rain (MinimoogParams& p)
     ampEnv (p, 0.40f, 1.50f, false, true);
     modulation (p, 1.0f, 0.50f, false, true);
     p.volume = 0.60f;
+    p.noiseLfo = true;
 }
 
 inline void wind (MinimoogParams& p)
@@ -390,6 +393,7 @@ inline void wind (MinimoogParams& p)
     ampEnv (p, 1.00f, 2.50f, false, true);
     modulation (p, 1.0f, 0.80f, false, true);
     p.volume = 0.55f;
+    p.noiseLfo = true;
 }
 
 inline void siren (MinimoogParams& p)
@@ -404,6 +408,7 @@ inline void siren (MinimoogParams& p)
     p.volume = 0.65f;
     p.distortion = 0.35f;
     p.distortionOn = true;
+    p.noiseLfo = true;
 }
 
 inline void rocket (MinimoogParams& p)
@@ -418,6 +423,7 @@ inline void rocket (MinimoogParams& p)
     p.volume = 0.60f;
     p.distortion = 0.4f;
     p.distortionOn = true;
+    p.noiseLfo = true;
 }
 
 inline void underwater (MinimoogParams& p)
@@ -431,6 +437,7 @@ inline void underwater (MinimoogParams& p)
     filterEnv (p, 0.30f, 1.20f, false, true);
     ampEnv (p, 0.30f, 1.20f, false, true);
     p.volume = 0.60f;
+    p.noiseLfo = true;
 }
 
 //==============================================================================

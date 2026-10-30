@@ -93,6 +93,112 @@ public:
         return (float) std::sqrt (sum / (double) buffer.getNumSamples());
     }
 
+
+    static double crossingRateBetween (const juce::AudioBuffer<float>& buffer, double sampleRate,
+                                        int start, int end)
+    {
+        const auto* data = buffer.getReadPointer (0);
+        int crossings = 0;
+        double first = -1.0, last = -1.0;
+
+        for (int i = juce::jmax (1, start); i < juce::jmin (end, buffer.getNumSamples()); ++i)
+        {
+            if (data[i - 1] <= 0.0f && data[i] > 0.0f)
+            {
+                const auto fraction = (double) -data[i - 1]
+                                          / (double) (data[i] - data[i - 1]);
+                const auto time = ((double) (i - 1) + fraction) / sampleRate;
+
+                if (first < 0.0)
+                    first = time;
+
+                last = time;
+                ++crossings;
+            }
+        }
+
+        return crossings > 1 && last > first ? (double) (crossings - 1) / (last - first) : 0.0;
+    }
+
+    static double periodJitter (const juce::AudioBuffer<float>& buffer, double sampleRate)
+    {
+        const auto* data = buffer.getReadPointer (0);
+        std::vector<double> periods;
+        double previous = -1.0;
+
+        for (int i = 1; i < buffer.getNumSamples(); ++i)
+        {
+            if (data[i - 1] <= 0.0f && data[i] > 0.0f)
+            {
+                const auto fraction = (double) -data[i - 1]
+                                          / (double) (data[i] - data[i - 1]);
+                const auto time = ((double) (i - 1) + fraction) / sampleRate;
+
+                if (previous >= 0.0)
+                    periods.push_back (time - previous);
+
+                previous = time;
+            }
+        }
+
+        if (periods.size() < 3)
+            return 0.0;
+
+        auto mean = 0.0;
+
+        for (const auto p : periods)
+            mean += p;
+
+        mean /= (double) periods.size();
+
+        auto variance = 0.0;
+
+        for (const auto p : periods)
+            variance += (p - mean) * (p - mean);
+
+        return std::sqrt (variance / (double) periods.size()) / juce::jmax (1.0e-6, mean);
+    }
+
+
+    static double periodRoughness (const juce::AudioBuffer<float>& buffer, double sampleRate)
+    {
+        const auto* data = buffer.getReadPointer (0);
+        std::vector<double> periods;
+        double previous = -1.0;
+
+        for (int i = 1; i < buffer.getNumSamples(); ++i)
+        {
+            if (data[i - 1] <= 0.0f && data[i] > 0.0f)
+            {
+                const auto fraction = (double) -data[i - 1]
+                                          / (double) (data[i] - data[i - 1]);
+                const auto time = ((double) (i - 1) + fraction) / sampleRate;
+
+                if (previous >= 0.0)
+                    periods.push_back (time - previous);
+
+                previous = time;
+            }
+        }
+
+        if (periods.size() < 4)
+            return 0.0;
+
+        auto mean = 0.0;
+
+        for (const auto p : periods)
+            mean += p;
+
+        mean /= (double) periods.size();
+
+        auto rough = 0.0;
+
+        for (size_t i = 2; i < periods.size(); ++i)
+            rough += std::abs (periods[i] - 2.0 * periods[i - 1] + periods[i - 2]);
+
+        return rough / ((double) periods.size() - 2.0) / juce::jmax (1.0e-6, mean);
+    }
+
     void runTest() override
     {
         constexpr double sampleRate = 48000.0;
@@ -413,6 +519,87 @@ public:
             expectEquals (voicesAfterRelease (false, 2400), 0);
         }
 
+
+        beginTest ("the oscillator 3 filter envelope switch bends oscillator 3");
+
+        {
+            auto render = [] (bool ecgOn)
+            {
+                auto params = singleOsc (MinimoogRange::feet8);
+
+                for (auto& osc : params.oscs)
+                {
+                    osc.enabled = false;
+                    osc.level = 0.0f;
+                }
+
+                params.oscs[2] = minimoog::osc (MinimoogWave::saw, MinimoogRange::feet8, 1.0f);
+                params.oscs[2].enabled = true;
+                params.osc3FilterEg = ecgOn;
+                params.filterCutoffHz = 18000.0f;
+                params.filterContourOctaves = 4.0f;
+                params.filterAttack = 0.001f;
+                params.filterDecay = 0.25f;
+                params.filterDecayShort = false;
+                params.filterSustainLevel = 0.0f;
+                params.ampAttack = 0.001f;
+                params.ampDecay = 0.001f;
+                params.ampSustainLevel = 1.0f;
+
+                MinimoogSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, 440.0f, 100.0f);
+
+                juce::AudioBuffer<float> buffer (2, 48000);
+                buffer.clear();
+                synth.renderAdding (buffer, 0, 48000, 1.0f, 1.0f);
+                return buffer;
+            };
+
+            const auto swept = render (true);
+            const auto flat = render (false);
+
+            const auto early = crossingRateBetween (swept, 48000.0, 1200, 7200);
+            const auto late = crossingRateBetween (swept, 48000.0, 36000, 46000);
+            const auto flatLate = crossingRateBetween (flat, 48000.0, 36000, 46000);
+
+            expectGreaterThan (early, late * 2.0);
+            expectWithinAbsoluteError (late, flatLate, flatLate * 0.1);
+        }
+
+        beginTest ("the noise LFO switch slows the random modulation");
+
+        {
+            auto render = [] (bool lfo)
+            {
+                auto params = singleOsc (MinimoogRange::feet8);
+                params.oscModOn = true;
+                params.modMix = 1.0f;
+                params.modDepth = 1.0f;
+                params.noiseLfo = lfo;
+                params.noiseLevel = 0.0f;
+                params.filterCutoffHz = 18000.0f;
+                params.ampDecay = 0.001f;
+                params.ampSustainLevel = 1.0f;
+
+                MinimoogSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, 220.0f, 100.0f);
+
+                juce::AudioBuffer<float> buffer (2, 24000);
+                buffer.clear();
+                synth.renderAdding (buffer, 0, 24000, 1.0f, 1.0f);
+                return buffer;
+            };
+
+            const auto white = render (false);
+            const auto slow = render (true);
+
+            expectGreaterThan (periodRoughness (white, 48000.0), periodRoughness (slow, 48000.0) * 1.5);
+        }
+
         beginTest ("the factory bank is 30 sounds in six categories");
 
         {
@@ -498,6 +685,8 @@ public:
             params.filterEmphasis = 0.6f;
             params.filterContourOctaves = 2.5f;
             params.filterKeyTrack1 = true;
+            params.osc3FilterEg = true;
+            params.noiseLfo = true;
             params.filterDecayShort = true;
             params.ampSustainLevel = 0.0f;
             params.releaseOn = false;

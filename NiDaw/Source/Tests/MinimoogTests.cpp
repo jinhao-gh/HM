@@ -337,6 +337,82 @@ public:
             expectGreaterThan (render (false), render (true) * 1.2f);
         }
 
+        beginTest ("unison thickens the mono voice and distortion adds harmonics");
+
+        {
+            auto render = [] (bool useUnison, bool useDistortion, float amount)
+            {
+                auto params = singleOsc (MinimoogRange::feet8);
+                params.unison = useUnison;
+                params.distortionOn = useDistortion;
+                params.distortion = amount;
+                params.filterCutoffHz = 1200.0f;
+                params.oscs[0] = minimoog::osc (MinimoogWave::triangle, MinimoogRange::feet8, 1.0f);
+
+                MinimoogSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, 220.0f, 100.0f);
+
+                juce::AudioBuffer<float> buffer (2, 9600);
+                buffer.clear();
+                synth.renderAdding (buffer, 0, 9600, 1.0f, 1.0f);
+                return buffer;
+            };
+
+            const auto plain = render (false, false, 0.0f);
+            const auto thick = render (true, false, 0.0f);
+
+            double difference = 0.0;
+
+            for (int i = 0; i < plain.getNumSamples(); ++i)
+            {
+                const auto d = (double) thick.getReadPointer (0)[i]
+                                   - (double) plain.getReadPointer (0)[i];
+                difference += d * d;
+            }
+
+            difference = std::sqrt (difference / (double) plain.getNumSamples());
+            expectGreaterThan ((float) difference, 0.0005f);
+            expectGreaterThan (rmsOf (thick, 2400, 6000), 0.01f);
+
+            const auto clean = render (false, false, 0.0f);
+            const auto dirty = render (false, true, 1.0f);
+            expectGreaterThan (highFrequencyEnergy (dirty), highFrequencyEnergy (clean) * 1.2f);
+        }
+
+        beginTest ("the release switch makes the release as long as the decay");
+
+        {
+            auto voicesAfterRelease = [] (bool releaseOn, int samples)
+            {
+                auto params = singleOsc (MinimoogRange::feet8);
+                params.ampDecay = 0.4f;
+                params.ampDecayShort = false;
+                params.ampSustainLevel = 1.0f;
+                params.releaseOn = releaseOn;
+
+                MinimoogSynth synth;
+                synth.prepare (48000.0);
+                synth.setParams (params);
+                synth.noteOn (1, 440.0f, 100.0f);
+
+                juce::AudioBuffer<float> warmUp (2, 9600);
+                warmUp.clear();
+                synth.renderAdding (warmUp, 0, 9600, 1.0f, 1.0f);
+                synth.noteOff (1);
+
+                juce::AudioBuffer<float> tail (2, samples);
+                tail.clear();
+                synth.renderAdding (tail, 0, samples, 1.0f, 1.0f);
+                return synth.activeVoiceCount();
+            };
+
+            expectEquals (voicesAfterRelease (true, 9600), 1);
+            expectEquals (voicesAfterRelease (true, 72000), 0);
+            expectEquals (voicesAfterRelease (false, 2400), 0);
+        }
+
         beginTest ("the factory bank is 30 sounds in six categories");
 
         {

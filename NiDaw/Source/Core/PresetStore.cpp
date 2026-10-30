@@ -862,6 +862,9 @@ juce::var minimoogParamsToVar (const MinimoogParams& s)
     o->setProperty ("glideOn", s.glideOn);
     o->setProperty ("modMix", s.modMix);
     o->setProperty ("modDepth", s.modDepth);
+    o->setProperty ("unison", s.unison);
+    o->setProperty ("distortion", s.distortion);
+    o->setProperty ("distortionOn", s.distortionOn);
     o->setProperty ("oscModOn", s.oscModOn);
     o->setProperty ("filterModOn", s.filterModOn);
     o->setProperty ("osc3Control", s.osc3Control);
@@ -924,6 +927,9 @@ MinimoogParams minimoogParamsFromVar (const juce::var& v)
     s.glideOn = readBool (v, "glideOn", false);
     s.modMix = (float) juce::jlimit (0.0, 1.0, readDouble (v, "modMix", 0.0));
     s.modDepth = (float) juce::jlimit (0.0, 1.0, readDouble (v, "modDepth", 0.0));
+    s.unison = readBool (v, "unison", false);
+    s.distortion = (float) juce::jlimit (0.0, 1.0, readDouble (v, "distortion", 0.0));
+    s.distortionOn = readBool (v, "distortionOn", false);
     s.oscModOn = readBool (v, "oscModOn", false);
     s.filterModOn = readBool (v, "filterModOn", false);
     s.osc3Control = readBool (v, "osc3Control", true);

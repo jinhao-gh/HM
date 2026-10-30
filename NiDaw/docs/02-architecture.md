@@ -681,3 +681,11 @@ noteOn → HybridVoice（频率、力度、4 ADSR、4 LFO、双滤波、调制�
 - 序列化：`minimoogParamsToVar/FromVar`、工程 `"minimoog"` 字段、预设库 `"minimoogPatches"` 段；`ProjectDocument` 的 kind clamp 到 0..9。
 - 预览：`PreviewKind::minimoog` 与 `triggerPreviewMinimoogNote/updatePreviewMinimoogParams`，编辑器键盘与旋钮试听走它。
 - 界面：`UI/MinimoogEditor.{h,cpp}`，设计尺寸 1120×680；`SynthWindow` 为它使用独立页宽高；`TrackArea` 的 + 菜单新增「迷你穆格」（id 10），新建时套「经典主音」。
+## 第七十批 · 齐奏、失真与释键
+
+- `MinimoogParams::unison`：`renderVoice` 里每个振荡器渲染 3 份副本，失谐 `{ -0.07, 0, +0.07 }` 半音（±7 音分），相加后除以 3；`Voice::phase`/`driftPhase` 扩成 `[3][3]`（副本 × 振荡器）。
+- `MinimoogParams::distortion` + `distortionOn`：滤波前 `drive = 1.6 + 9.5 × distortion`（关闭时 1.5），`tanh(mix × drive) / tanh(drive)`，再进梯形滤波。
+- `releaseOn`：包络释放系数改为按当前衰减时间计算（`coefficient (decayShort ? decay*0.1 : decay)`），关闭时 2 ms；即「释键」开启后 release 与 decay 等长。
+- 界面：1120×620，四栏（控制器/振荡器组/混音器/修饰器），顶部栏放复音数、力度、主音量滑条与预设栏；移除键盘区、弯音/调制轮与输出栏。
+- 波形开关 `setShowLabels(false)`，当前波形名由 `waveName` 标签画在旋钮上方；粗调/细调/波形、失真量、齐奏等中文标签。
+- 滑音没有独立开关：`pushCurrentParams` 用 `glideSeconds > 0.001` 写 `glideOn`。

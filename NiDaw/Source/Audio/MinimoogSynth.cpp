@@ -43,7 +43,7 @@ void MinimoogSynth::Envelope::configure() noexcept
 {
     attackCoef = coefficient (attack, sampleRate);
     decayCoef = coefficient (decayShort ? decay * 0.1f : decay, sampleRate);
-    releaseCoef = coefficient (releaseOn ? 0.08 : 0.002, sampleRate);
+    releaseCoef = coefficient (releaseOn ? (decayShort ? decay * 0.1f : decay) : 0.002, sampleRate);
 }
 
 void MinimoogSynth::Envelope::release() noexcept
@@ -427,6 +427,8 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
     const auto glideCoefficient = 1.0 - std::exp (-4.0 / (juce::jmax (0.001f, params.glideSeconds)
                                                          * sampleRate));
     const auto isMono = params.polyphony == 0;
+    const auto unisonCount = params.unison ? 3 : 1;
+    static constexpr double kUnisonDetune[3] = { -0.07, 0.0, 0.07 };
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -450,14 +452,22 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
 
         // ---- oscillator 3 first: it can be the modulation source -----------
         auto& o3 = params.oscs[2];
-        const auto drift3 = 2.0 * std::sin (kTwoPi * voice.driftPhase[2]);
+        double sample3 = 0.0;
         const auto base3 = params.osc3Control ? voice.currentHz : 261.6255653;
-        const auto freq3 = base3 * minimoog::rangeMultiplier (o3.range)
-                               * std::pow (2.0, o3.tuneSemitones / 12.0)
-                               * masterTune * std::pow (2.0, drift3 / 1200.0);
-        const auto delta3 = freq3 / sampleRate;
-        voice.phase[2] = wrap01 (voice.phase[2] + delta3);
-        const auto sample3 = minimoog::oscillatorSample (o3.wave, voice.phase[2], delta3);
+
+        for (int u = 0; u < unisonCount; ++u)
+        {
+            const auto drift = 2.0 * std::sin (kTwoPi * voice.driftPhase[u][2]);
+            const auto freq = base3 * minimoog::rangeMultiplier (o3.range)
+                                  * std::pow (2.0, o3.tuneSemitones / 12.0)
+                                  * masterTune
+                                  * std::pow (2.0, (kUnisonDetune[u] + drift) / 1200.0);
+            const auto delta = freq / sampleRate;
+            voice.phase[u][2] = wrap01 (voice.phase[u][2] + delta);
+            sample3 += minimoog::oscillatorSample (o3.wave, voice.phase[u][2], delta);
+        }
+
+        sample3 /= unisonCount;
 
         // ---- noise ---------------------------------------------------------
         const auto white = random.nextDouble() * 2.0 - 1.0;
@@ -477,15 +487,22 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
         for (int o = 0; o < 2; ++o)
         {
             const auto& osc = params.oscs[(size_t) o];
-            const auto drift = 2.0 * std::sin (kTwoPi * voice.driftPhase[o]);
-            const auto freq = voice.currentHz * minimoog::rangeMultiplier (osc.range)
-                                  * std::pow (2.0, osc.tuneSemitones / 12.0)
-                                  * masterTune * pitchMod * std::pow (2.0, drift / 1200.0);
-            const auto delta = freq / sampleRate;
-            voice.phase[o] = wrap01 (voice.phase[o] + delta);
+            double oscillatorSum = 0.0;
+
+            for (int u = 0; u < unisonCount; ++u)
+            {
+                const auto drift = 2.0 * std::sin (kTwoPi * voice.driftPhase[u][o]);
+                const auto freq = voice.currentHz * minimoog::rangeMultiplier (osc.range)
+                                      * std::pow (2.0, osc.tuneSemitones / 12.0)
+                                      * masterTune * pitchMod
+                                      * std::pow (2.0, (kUnisonDetune[u] + drift) / 1200.0);
+                const auto delta = freq / sampleRate;
+                voice.phase[u][o] = wrap01 (voice.phase[u][o] + delta);
+                oscillatorSum += minimoog::oscillatorSample (osc.wave, voice.phase[u][o], delta);
+            }
 
             if (osc.enabled)
-                mix += osc.level * minimoog::oscillatorSample (osc.wave, voice.phase[o], delta);
+                mix += osc.level * oscillatorSum / unisonCount;
         }
 
         if (o3.enabled)
@@ -493,11 +510,14 @@ void MinimoogSynth::renderVoice (Voice& voice, juce::AudioBuffer<float>& buffer,
 
         mix += params.noiseLevel * noise;
 
-        for (int o = 0; o < 3; ++o)
-            voice.driftPhase[o] = wrap01 (voice.driftPhase[o] + (0.03 + 0.015 * o) / sampleRate);
+        for (int u = 0; u < 3; ++u)
+            for (int o = 0; o < 3; ++o)
+                voice.driftPhase[u][o] = wrap01 (voice.driftPhase[u][o]
+                                                     + (0.03 + 0.015 * o) / sampleRate);
 
-        // ---- mixer overload, ladder, loudness ------------------------------
-        const auto driven = std::tanh (1.5 * mix) / 0.9051482536;
+        // ---- mixer overload / distortion, ladder, loudness ------------------
+        const auto drive = params.distortionOn ? 1.6 + params.distortion * 8.0 : 1.5;
+        const auto driven = std::tanh (mix * drive) / std::tanh (drive);
 
         const auto keyTrack = (params.filterKeyTrack1 ? 1.0 / 3.0 : 0.0)
                                   + (params.filterKeyTrack2 ? 1.0 / 3.0 : 0.0);

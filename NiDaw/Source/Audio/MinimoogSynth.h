@@ -218,8 +218,8 @@ private:
         double currentHz = 440.0;
         int    midiNote = 69;
 
-        double phase[3] { 0.0, 0.0, 0.0 };
-        double driftPhase[3] { 0.0, 0.0, 0.0 };
+        double phase[3][3] { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
+        double driftPhase[3][3] { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
 
         float velocityGain = 1.0f;
 

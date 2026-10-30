@@ -7,7 +7,6 @@
 #include "PresetBar.h"
 #include "SynthControls.h"
 
-#include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include <array>
@@ -16,14 +15,16 @@
 namespace nidaw
 {
 
-/** A discrete rotary switch like the Minimoog's range and waveform selectors:
-    the labels sit around the knob and the pointer clicks from one to the next. */
+/** A discrete rotary switch: the labels sit above the knob and the pointer clicks
+    from one position to the next. */
 class MinimoogRotarySwitch : public juce::Component
 {
 public:
     MinimoogRotarySwitch() = default;
 
     void setLabels (juce::StringArray newLabels);
+    /** The waveform switch shows its name above the knob instead of a label row. */
+    void setShowLabels (bool shouldShow);
     void setSelected (int index, bool notify);
     int  getSelected() const noexcept { return selected; }
 
@@ -41,13 +42,14 @@ private:
     juce::StringArray labels;
     int selected = 0;
     bool dragging = false;
+    bool showLabels = true;
     int dragStartSelected = 0;
     juce::Point<int> dragStart;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MinimoogRotarySwitch)
 };
 
-/** The two-position rocker switches of the panel. */
+/** A two-position rocker switch. */
 class MinimoogRocker : public juce::Component
 {
 public:
@@ -70,53 +72,18 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MinimoogRocker)
 };
 
-/** A vertical performance wheel: the mod wheel stays where it is put, the pitch
-    wheel springs back to the middle when the mouse is released. */
-class MinimoogWheel : public juce::Component
-{
-public:
-    MinimoogWheel() = default;
-
-    void setSpringLoaded (bool shouldSpring) { springLoaded = shouldSpring; }
-    void setBipolar (bool shouldBeBipolar) { bipolar = shouldBeBipolar; }
-    void setValue (float newValue) { value = juce::jlimit (-1.0f, 1.0f, newValue); repaint(); }
-    float getValue() const noexcept { return value; }
-
-    void paint (juce::Graphics& g) override;
-    void mouseDown (const juce::MouseEvent& e) override;
-    void mouseDrag (const juce::MouseEvent& e) override;
-    void mouseUp (const juce::MouseEvent&) override;
-
-    std::function<void(float)> onChange;
-
-private:
-    void updateFromPoint (juce::Point<int> point);
-
-    float value = 0.0f;
-    bool springLoaded = false;
-    bool bipolar = true;
-
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MinimoogWheel)
-};
-
 //==============================================================================
-/** The Minimoog Model D editor.
-
-    The panel follows the original's five sections left to right - controllers,
-    oscillator bank, mixer, modifiers and output - and draws them on a dark panel
-    with wood cheeks. A small HM strip above it carries the settings the original
-    does not have: polyphony and velocity sensitivity.
-*/
+/** The Minimoog Model D editor: four wide sections - controllers, oscillator
+    bank, mixer and modifiers - laid out on a dark panel with a wooden frame. */
 class MinimoogEditor : public juce::Component,
-                       private juce::ChangeListener,
-                       private juce::MidiKeyboardState::Listener
+                       private juce::ChangeListener
 {
 public:
     MinimoogEditor (ProjectDocument& document, AudioEngine& audioEngine, PresetStore& presets);
     ~MinimoogEditor() override;
 
     static constexpr int kDesignWidth  = 1120;
-    static constexpr int kDesignHeight = 760;
+    static constexpr int kDesignHeight = 620;
 
     void setTrack (juce::int64 newTrackId);
     juce::int64 getTrackId() const noexcept { return trackId; }
@@ -155,11 +122,6 @@ private:
 
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
 
-    void handleNoteOn (juce::MidiKeyboardState* state, int midiChannel,
-                       int midiNoteNumber, float velocity) override;
-    void handleNoteOff (juce::MidiKeyboardState* state, int midiChannel,
-                        int midiNoteNumber, float velocity) override;
-
     InstrumentTrack* currentTrack();
     const InstrumentTrack* currentTrack() const;
 
@@ -179,7 +141,6 @@ private:
     bool deletePresetById (int id);
     bool userPresetExists (const juce::String& name) const;
 
-    // Panel-unit conversions.
     static float cutoffToKnob (float hz) noexcept;
     static float knobToCutoff (float knob) noexcept;
     static float secondsToKnob (float seconds) noexcept;
@@ -193,43 +154,28 @@ private:
     PresetBar presetBar { NI_TXT ("内置") };
     juce::ComboBox polyphonyBox;
     juce::Slider velocityKnob;
+    juce::Slider mainVolume;
 
-    MinimoogWheel pitchWheel, modWheel;
+    juce::Slider masterTune, glideKnob, modMix;
+    MinimoogRocker unison, osc3Control;
+    MinimoogRocker osc3FilterEg, noiseLfo;     // original panel, not driven yet
 
     MinimoogRotarySwitch rangeSwitch[3], waveSwitch[3];
     std::array<juce::Label, 3> waveName;
-    MinimoogRocker oscOn[3], osc3Control;
-
     juce::Slider tune[3];
     juce::Slider oscLevel[3];
-    juce::Slider masterTune, glideKnob, modMix;
-    MinimoogRocker glideSwitch, oscMod, filterMod;
+    MinimoogRocker oscOn[3], distortionOn, noiseType;
 
-    juce::Slider noiseLevelSlider;
-    MinimoogRocker noiseType;
+    juce::Slider noiseLevelSlider, distortion;
 
     juce::Slider cutoff, emphasis, contour;
-    MinimoogRocker keyTrack1, keyTrack2;
     juce::Slider filterAttack, filterDecay, filterSustainLevel;
     juce::Slider ampAttack, ampDecay, ampSustainLevel;
-    MinimoogRocker releaseSwitch;
-
-    /** Controls the real panel has but this engine does not drive (yet). They are
-        drawn dimmed so the layout stays complete. */
-    MinimoogRocker osc3FilterEg, noiseLfo, externalInputOn, a440, power;
-    juce::Slider externalInputVolume, lfoRate;
-
-    juce::Slider volume;
-    MinimoogRocker mainOut;
-
-    juce::MidiKeyboardState keyboardState;
-    juce::MidiKeyboardComponent keyboard;
+    MinimoogRocker keyTrack1, keyTrack2, releaseSwitch;
 
     std::vector<PrintedLabel> printedLabels;
-    juce::Rectangle<int> panelArea, controllersArea, oscillatorArea, mixerArea;
-    juce::Rectangle<int> modifiersArea, outputArea, keyboardArea;
+    juce::Rectangle<int> panelArea, controllersArea, oscillatorArea, mixerArea, modifiersArea;
 
-    int previewMidiNote = -1;
     bool updating = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MinimoogEditor)

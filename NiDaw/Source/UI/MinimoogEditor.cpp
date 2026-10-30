@@ -8,19 +8,17 @@ namespace nidaw
 
 namespace
 {
-    constexpr int kCheekWidth    = 14;
-    constexpr int kStripHeight   = 38;
-    constexpr int kKeyboardHeight = 160;
+    constexpr int kCheekWidth  = 14;
+    constexpr int kStripHeight = 46;
 
     const juce::Colour kPanel      { 0xff121213 };
     const juce::Colour kPanelEdge  { 0xff3a3a3c };
     const juce::Colour kCream      { 0xffe9e4d4 };
-    const juce::Colour kDimCream   { 0xff9c9686 };
+    const juce::Colour kDimCream   { 0xffa8a292 };
     const juce::Colour kWoodDark   { 0xff1d0d05 };
     const juce::Colour kWoodMid    { 0xff4a2412 };
     const juce::Colour kWoodLight  { 0xff7a3f1e };
     const juce::Colour kOrange     { 0xffd2572f };
-    const juce::Colour kBlue       { 0xff4fa8c9 };
     const juce::Colour kMetal      { 0xffc8c4ba };
 
     const juce::StringArray& waveNames()
@@ -28,14 +26,6 @@ namespace
         static const juce::StringArray names { NI_TXT ("三角"), NI_TXT ("斜三角"),
                                                NI_TXT ("锯齿"), NI_TXT ("方波"),
                                                NI_TXT ("宽脉冲"), NI_TXT ("窄脉冲") };
-        return names;
-    }
-
-    const juce::StringArray& waveLabels()
-    {
-        static const juce::StringArray names { NI_TXT ("△"), NI_TXT ("◺"),
-                                               NI_TXT ("锯"), NI_TXT ("□"),
-                                               NI_TXT ("宽"), NI_TXT ("窄") };
         return names;
     }
 
@@ -49,8 +39,8 @@ namespace
                            const juce::String& title)
     {
         g.setColour (kCream);
-        g.setFont (theme::font (12.5f, true));
-        g.drawText (title, panel.removeFromBottom (22), juce::Justification::centred);
+        g.setFont (theme::font (16.0f, true));
+        g.drawText (title, panel.removeFromBottom (26), juce::Justification::centred);
     }
 }
 
@@ -59,6 +49,12 @@ void MinimoogRotarySwitch::setLabels (juce::StringArray newLabels)
 {
     labels = std::move (newLabels);
     selected = juce::jlimit (0, juce::jmax (0, labels.size() - 1), selected);
+    repaint();
+}
+
+void MinimoogRotarySwitch::setShowLabels (bool shouldShow)
+{
+    showLabels = shouldShow;
     repaint();
 }
 
@@ -79,22 +75,22 @@ void MinimoogRotarySwitch::setSelected (int index, bool notify)
 void MinimoogRotarySwitch::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    auto labelRow = area.removeFromTop (12);
 
-    if (! labels.isEmpty())
+    if (showLabels && ! labels.isEmpty())
     {
+        auto labelRow = area.removeFromTop (15);
         const auto width = juce::jmax (8, labelRow.getWidth() / labels.size());
 
         for (int i = 0; i < labels.size(); ++i)
         {
             auto slot = labelRow.withX (labelRow.getX() + i * width).withWidth (width);
             g.setColour (i == selected ? kCream : kDimCream);
-            g.setFont (theme::font (7.5f, i == selected));
+            g.setFont (theme::font (9.0f, i == selected));
             g.drawText (labels[i], slot, juce::Justification::centred);
         }
     }
 
-    auto knobArea = area.reduced (6, 3);
+    auto knobArea = area.reduced (8, 4);
     const auto diameter = juce::jmin (knobArea.getWidth(), knobArea.getHeight());
     auto knob = juce::Rectangle<float> ((float) knobArea.getCentreX() - diameter * 0.5f,
                                         (float) knobArea.getCentreY() - diameter * 0.5f,
@@ -116,7 +112,7 @@ void MinimoogRotarySwitch::paint (juce::Graphics& g)
     g.drawLine (centre.x, centre.y,
                 centre.x + std::sin (angle) * radius,
                 centre.y - std::cos (angle) * radius,
-                2.2f);
+                2.4f);
 }
 
 void MinimoogRotarySwitch::mouseDown (const juce::MouseEvent& e)
@@ -132,7 +128,7 @@ void MinimoogRotarySwitch::mouseDrag (const juce::MouseEvent& e)
     if (! dragging)
         return;
 
-    const auto delta = (e.getPosition().y - dragStart.y) / 8;
+    const auto delta = (e.getPosition().y - dragStart.y) / 10;
     const auto wanted = juce::jlimit (0, juce::jmax (0, labels.size() - 1),
                                       dragStartSelected - delta);
 
@@ -206,7 +202,7 @@ void MinimoogRocker::setState (bool on, bool notify)
 void MinimoogRocker::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    auto caption = area.removeFromBottom (10);
+    auto caption = area.removeFromBottom (13);
     auto rocker = area.reduced (1, 1);
 
     g.setColour (juce::Colour (0xff0a0a0b));
@@ -226,7 +222,7 @@ void MinimoogRocker::paint (juce::Graphics& g)
     g.drawRoundedRectangle (rocker.toFloat().reduced (0.5f), 3.0f, 1.0f);
 
     g.setColour (state ? kCream : kDimCream);
-    g.setFont (theme::font (7.5f, state));
+    g.setFont (theme::font (10.5f, state));
     g.drawText (state ? topLabel : bottomLabel, caption, juce::Justification::centred);
 }
 
@@ -253,77 +249,11 @@ bool MinimoogRocker::keyPressed (const juce::KeyPress& key)
 }
 
 //==============================================================================
-void MinimoogWheel::paint (juce::Graphics& g)
-{
-    auto area = getLocalBounds().reduced (2, 2);
-
-    g.setColour (juce::Colour (0xff0a0a0c));
-    g.fillRoundedRectangle (area.toFloat(), 4.0f);
-    g.setColour (kMetal.withAlpha (0.35f));
-    g.drawRoundedRectangle (area.toFloat().reduced (0.5f), 4.0f, 0.8f);
-
-    const auto travel = area.getHeight() - 8;
-    const auto position = bipolar ? 0.5f - value * 0.5f : 1.0f - value;
-    const auto y = area.getY() + 4 + (int) std::lround (position * travel);
-
-    g.setColour (juce::Colour (0xffcfc9b8));
-    g.fillRoundedRectangle (juce::Rectangle<float> ((float) area.getX() + 3.0f,
-                                                    (float) y - 3.0f,
-                                                    (float) area.getWidth() - 6.0f,
-                                                    6.0f),
-                            2.0f);
-}
-
-void MinimoogWheel::mouseDown (const juce::MouseEvent& e)
-{
-    if (! isEnabled())
-        return;
-
-    updateFromPoint (e.getPosition());
-}
-
-void MinimoogWheel::mouseDrag (const juce::MouseEvent& e)
-{
-    if (! isEnabled())
-        return;
-
-    updateFromPoint (e.getPosition());
-}
-
-void MinimoogWheel::mouseUp (const juce::MouseEvent&)
-{
-    if (springLoaded && isEnabled())
-    {
-        value = 0.0f;
-        repaint();
-
-        if (onChange != nullptr)
-            onChange (value);
-    }
-}
-
-void MinimoogWheel::updateFromPoint (juce::Point<int> point)
-{
-    auto area = getLocalBounds().reduced (2, 2);
-    const auto travel = juce::jmax (1, area.getHeight() - 8);
-    const auto position = juce::jlimit (0.0f, 1.0f,
-                                        (float) (point.y - area.getY() - 4) / (float) travel);
-    const auto next = bipolar ? 1.0f - position * 2.0f : 1.0f - position;
-
-    value = juce::jlimit (-1.0f, 1.0f, next);
-    repaint();
-
-    if (onChange != nullptr)
-        onChange (value);
-}
-
-//==============================================================================
 MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& audioToUse,
                                 PresetStore& presetsToUse)
     : document (documentToUse),
       audio (audioToUse),
-      presets (presetsToUse),
-      keyboard (keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
+      presets (presetsToUse)
 {
     addAndMakeVisible (presetBar);
     presetBar.getEntries       = [this] { return buildPresetEntries(); };
@@ -358,6 +288,13 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
 
     addAndMakeVisible (velocityKnob);
     configureKnob (velocityKnob, 0.0, 10.0, 0.1, 7.0);
+    velocityKnob.setSliderStyle (juce::Slider::LinearHorizontal);
+    velocityKnob.setTextBoxStyle (juce::Slider::TextBoxRight, false, 40, 20);
+
+    addAndMakeVisible (mainVolume);
+    configureKnob (mainVolume, 0.0, 10.0, 0.1, 7.0);
+    mainVolume.setSliderStyle (juce::Slider::LinearHorizontal);
+    mainVolume.setTextBoxStyle (juce::Slider::TextBoxRight, false, 44, 20);
 
     auto commit = [this] (const char* name)
     {
@@ -367,14 +304,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
         beginParamEdit (NI_TXT (name));
         pushCurrentParams();
     };
-
-    addAndMakeVisible (pitchWheel);
-    pitchWheel.setSpringLoaded (true);
-    pitchWheel.onChange = [commit] (float) { commit ("弯音"); };
-
-    addAndMakeVisible (modWheel);
-    modWheel.setBipolar (false);
-    modWheel.onChange = [commit] (float) { commit ("调制轮"); };
 
     auto setupRocker = [this, commit] (MinimoogRocker& rocker, const juce::String& on,
                                        const juce::String& off, bool initial)
@@ -393,7 +322,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
         rocker.setState (false, false);
         rocker.setEnabled (false);
         rocker.setAlpha (0.45f);
-
     };
 
     for (int i = 0; i < 3; ++i)
@@ -402,17 +330,18 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
         addAndMakeVisible (range);
         range.setLabels (rangeLabels());
         range.setSelected (3, false);
-        range.onChange = [commit] (int) { commit ("振荡器档位"); };
+        range.onChange = [commit] (int) { commit ("振荡器粗调"); };
 
         auto& wave = waveSwitch[i];
         addAndMakeVisible (wave);
-        wave.setLabels (waveLabels());
+        wave.setLabels ({ "1", "2", "3", "4", "5", "6" });
+        wave.setShowLabels (false);
         wave.setSelected (2, false);
         wave.onChange = [commit] (int) { commit ("振荡器波形"); };
 
         auto& name = waveName[(size_t) i];
         addAndMakeVisible (name);
-        name.setFont (theme::font (8.0f));
+        name.setFont (theme::font (11.5f, true));
         name.setColour (juce::Label::textColourId, kCream);
         name.setJustificationType (juce::Justification::centred);
 
@@ -426,21 +355,15 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
         setupRocker (oscOn[i], NI_TXT ("开"), NI_TXT ("关"), true);
     }
 
-    setupRocker (osc3Control, NI_TXT ("开"), NI_TXT ("关"), true);
-    setupRocker (glideSwitch, NI_TXT ("开"), NI_TXT ("关"), false);
-    setupRocker (oscMod, NI_TXT ("开"), NI_TXT ("关"), false);
-    setupRocker (filterMod, NI_TXT ("开"), NI_TXT ("关"), false);
+    setupRocker (unison, NI_TXT ("开"), NI_TXT ("关"), false);
+    setupRocker (osc3Control, NI_TXT ("跟随"), NI_TXT ("固定"), true);
+    setupRocker (distortionOn, NI_TXT ("开"), NI_TXT ("关"), false);
     setupRocker (noiseType, NI_TXT ("粉"), NI_TXT ("白"), false);
     setupRocker (keyTrack1, NI_TXT ("开"), NI_TXT ("关"), false);
     setupRocker (keyTrack2, NI_TXT ("开"), NI_TXT ("关"), false);
     setupRocker (releaseSwitch, NI_TXT ("开"), NI_TXT ("关"), true);
-    setupRocker (mainOut, NI_TXT ("开"), NI_TXT ("关"), true);
-
     setupDisabledRocker (osc3FilterEg, NI_TXT ("开"), NI_TXT ("关"));
     setupDisabledRocker (noiseLfo, NI_TXT ("开"), NI_TXT ("关"));
-    setupDisabledRocker (externalInputOn, NI_TXT ("开"), NI_TXT ("关"));
-    setupDisabledRocker (a440, NI_TXT ("开"), NI_TXT ("关"));
-    setupDisabledRocker (power, NI_TXT ("开"), NI_TXT ("关"));
 
     addAndMakeVisible (masterTune);
     configureKnob (masterTune, -50.0, 50.0, 1.0, 0.0);
@@ -451,6 +374,8 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
 
     addAndMakeVisible (noiseLevelSlider);
     configureKnob (noiseLevelSlider, 0.0, 10.0, 0.1, 0.0);
+    addAndMakeVisible (distortion);
+    configureKnob (distortion, 0.0, 10.0, 0.1, 0.0);
 
     addAndMakeVisible (cutoff);
     configureKnob (cutoff, -5.0, 5.0, 0.05, 3.0);
@@ -475,33 +400,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
     configureKnob (ampSustainLevel, 0.0, 10.0, 0.1, 8.0);
     ampSustainLevel.setDoubleClickReturnValue (true, 8.0);
 
-    addAndMakeVisible (volume);
-    configureKnob (volume, 0.0, 10.0, 0.1, 7.0);
-
-    addAndMakeVisible (externalInputVolume);
-    configureKnob (externalInputVolume, 0.0, 10.0, 0.1, 0.0);
-    externalInputVolume.setEnabled (false);
-    externalInputVolume.setAlpha (0.4f);
-
-    addAndMakeVisible (lfoRate);
-    configureKnob (lfoRate, 0.0, 10.0, 0.1, 4.0);
-    lfoRate.setEnabled (false);
-    lfoRate.setAlpha (0.4f);
-
-    addAndMakeVisible (keyboard);
-    keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (0xffe9e6da));
-    keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId, juce::Colour (0xff17171b));
-    keyboard.setColour (juce::MidiKeyboardComponent::keySeparatorLineColourId, juce::Colour (0xff3a3830));
-    keyboard.setColour (juce::MidiKeyboardComponent::keyDownOverlayColourId, kOrange);
-    keyboard.setColour (juce::MidiKeyboardComponent::mouseOverKeyOverlayColourId,
-                        kOrange.withAlpha (0.35f));
-    keyboard.setColour (juce::MidiKeyboardComponent::textLabelColourId, kDimCream);
-    keyboard.setAvailableRange (36, 84);
-    keyboard.setKeyWidth (26.0f);
-    keyboard.setLowestVisibleKey (48);
-    keyboardState.addListener (this);
-
-    // Every knob writes its value into the patch when it moves.
     auto wireSlider = [this, commit] (juce::Slider& slider)
     {
         slider.onDragStart = [this] { beginParamEdit (NI_TXT ("调整迷你穆格")); };
@@ -509,10 +407,12 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
     };
 
     wireSlider (velocityKnob);
+    wireSlider (mainVolume);
     wireSlider (masterTune);
     wireSlider (glideKnob);
     wireSlider (modMix);
     wireSlider (noiseLevelSlider);
+    wireSlider (distortion);
     wireSlider (cutoff);
     wireSlider (emphasis);
     wireSlider (contour);
@@ -522,7 +422,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
     wireSlider (ampAttack);
     wireSlider (ampDecay);
     wireSlider (ampSustainLevel);
-    wireSlider (volume);
 
     for (int i = 0; i < 3; ++i)
     {
@@ -536,7 +435,6 @@ MinimoogEditor::MinimoogEditor (ProjectDocument& documentToUse, AudioEngine& aud
 
 MinimoogEditor::~MinimoogEditor()
 {
-    keyboardState.removeListener (this);
     document.removeChangeListener (this);
 }
 
@@ -568,7 +466,7 @@ void MinimoogEditor::configureKnob (juce::Slider& slider, double minimum, double
 {
     addAndMakeVisible (slider);
     slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 46, 13);
+    slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 15);
     slider.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
                                 juce::MathConstants<float>::pi * 2.75f, true);
     slider.setRange (minimum, maximum, interval);
@@ -647,18 +545,17 @@ void MinimoogEditor::updateControlsFromTrack()
         oscOn[i].setState (p.oscs[(size_t) i].enabled, false);
     }
 
+    unison.setState (p.unison, false);
     osc3Control.setState (p.osc3Control, false);
+    distortionOn.setState (p.distortionOn, false);
     masterTune.setValue (p.masterTuneCents, juce::dontSendNotification);
     glideKnob.setValue (secondsToKnob (p.glideSeconds), juce::dontSendNotification);
-    glideSwitch.setState (p.glideOn, false);
     modMix.setValue ((double) p.modMix * 10.0, juce::dontSendNotification);
-    modWheel.setValue (p.modDepth);
-    oscMod.setState (p.oscModOn, false);
-    filterMod.setState (p.filterModOn, false);
 
     noiseLevelSlider.setValue (10.0 * std::sqrt ((double) p.noiseLevel),
                                juce::dontSendNotification);
     noiseType.setState (p.noisePink, false);
+    distortion.setValue ((double) p.distortion * 10.0, juce::dontSendNotification);
 
     cutoff.setValue (cutoffToKnob (p.filterCutoffHz), juce::dontSendNotification);
     emphasis.setValue ((double) p.filterEmphasis * 10.0, juce::dontSendNotification);
@@ -676,7 +573,7 @@ void MinimoogEditor::updateControlsFromTrack()
     ampSustainLevel.setValue ((double) p.ampSustainLevel * 10.0, juce::dontSendNotification);
     releaseSwitch.setState (p.releaseOn, false);
 
-    volume.setValue ((double) p.volume * 10.0, juce::dontSendNotification);
+    mainVolume.setValue ((double) p.volume * 10.0, juce::dontSendNotification);
     velocityKnob.setValue ((double) p.velocitySensitivity * 10.0, juce::dontSendNotification);
 
     static const int polyphonyValues[] = { 0, 2, 4, 8, 16, 32, -1 };
@@ -724,17 +621,17 @@ void MinimoogEditor::pushCurrentParams()
         p.oscs[(size_t) i].level = (float) std::pow (oscLevel[i].getValue() / 10.0, 2.0);
     }
 
+    p.unison = unison.getState();
     p.osc3Control = osc3Control.getState();
+    p.distortionOn = distortionOn.getState();
     p.masterTuneCents = (float) masterTune.getValue();
     p.glideSeconds = knobToSeconds ((float) glideKnob.getValue());
-    p.glideOn = glideSwitch.getState();
+    p.glideOn = p.glideSeconds > 0.001f;
     p.modMix = (float) modMix.getValue() / 10.0f;
-    p.modDepth = juce::jlimit (0.0f, 1.0f, modWheel.getValue());
-    p.oscModOn = oscMod.getState();
-    p.filterModOn = filterMod.getState();
 
     p.noiseLevel = (float) std::pow (noiseLevelSlider.getValue() / 10.0, 2.0);
     p.noisePink = noiseType.getState();
+    p.distortion = juce::jlimit (0.0f, 1.0f, (float) distortion.getValue() / 10.0f);
 
     p.filterCutoffHz = knobToCutoff ((float) cutoff.getValue());
     p.filterEmphasis = (float) emphasis.getValue() / 10.0f;
@@ -753,7 +650,7 @@ void MinimoogEditor::pushCurrentParams()
                                       (float) ampSustainLevel.getValue() / 10.0f);
     p.releaseOn = releaseSwitch.getState();
 
-    p.volume = (float) volume.getValue() / 10.0f;
+    p.volume = (float) mainVolume.getValue() / 10.0f;
     p.velocitySensitivity = juce::jlimit (0.0f, 1.0f, (float) velocityKnob.getValue() / 10.0f);
 
     pushParams (p);
@@ -780,257 +677,200 @@ void MinimoogEditor::resized()
     printedLabels.clear();
 
     auto area = getLocalBounds();
-    auto strip = area.removeFromTop (kStripHeight);
+    auto strip = area.removeFromTop (kStripHeight).reduced (6, 4);
 
-    strip.removeFromRight (6);
-    presetBar.setBounds (strip.removeFromRight (588).reduced (0, 6));
-    strip.removeFromRight (8);
-    velocityKnob.setBounds (strip.removeFromRight (84).reduced (2, 4));
-    velocityKnob.setTextBoxStyle (juce::Slider::TextBoxRight, false, 34, 15);
-    strip.removeFromRight (6);
-    polyphonyBox.setBounds (strip.removeFromRight (118).reduced (2, 8));
+    strip.removeFromRight (4);
+    presetBar.setBounds (strip.removeFromRight (500).reduced (0, 3));
+    strip.removeFromRight (10);
+    auto volumeArea = strip.removeFromRight (176);
+    auto volumeLabel = volumeArea.removeFromLeft (58);
+    printedLabels.push_back ({ volumeLabel, NI_TXT ("主音量"), false,
+                               juce::Justification::centredRight });
+    mainVolume.setBounds (volumeArea.reduced (0, 3));
+    strip.removeFromRight (12);
+    auto velocityArea = strip.removeFromRight (104);
+    auto velocityLabel = velocityArea.removeFromLeft (36);
+    printedLabels.push_back ({ velocityLabel, NI_TXT ("力度"), false,
+                               juce::Justification::centredRight });
+    velocityKnob.setBounds (velocityArea.reduced (0, 3));
+    strip.removeFromRight (12);
+    auto polyphonyArea = strip.removeFromRight (112);
+    auto polyphonyLabel = polyphonyArea.removeFromLeft (52);
+    printedLabels.push_back ({ polyphonyLabel, NI_TXT ("复音数"), false,
+                               juce::Justification::centredRight });
+    polyphonyBox.setBounds (polyphonyArea.reduced (0, 3));
 
-    printedLabels.push_back ({ polyphonyBox.getBounds().translated (-58, 0), NI_TXT ("复音数"),
-                               false, juce::Justification::centredRight });
-    printedLabels.push_back ({ velocityKnob.getBounds().translated (-30, 0), NI_TXT ("力度"),
-                               false, juce::Justification::centredRight });
+    area.removeFromTop (4);
+    area.removeFromBottom (8);
+    panelArea = area.reduced (kCheekWidth, 0);
 
-    keyboardArea = area.removeFromBottom (kKeyboardHeight);
-    panelArea = area.reduced (kCheekWidth, 8);
-
-    auto inner = panelArea.reduced (6, 6);
-    controllersArea = inner.removeFromLeft (143);
+    auto inner = panelArea.reduced (8, 6);
+    controllersArea = inner.removeFromLeft (226);
     inner.removeFromLeft (8);
-    oscillatorArea = inner.removeFromLeft (325);
+    oscillatorArea = inner.removeFromLeft (356);
     inner.removeFromLeft (8);
-    mixerArea = inner.removeFromLeft (232);
+    mixerArea = inner.removeFromLeft (206);
     inner.removeFromLeft (8);
-    outputArea = inner.removeFromRight (78);
-    inner.removeFromRight (8);
     modifiersArea = inner;
 
     auto placeKnob = [this] (juce::Rectangle<int> bounds, juce::Slider& slider,
                              const juce::String& caption, int knobHeight = 0)
     {
-        auto label = bounds.removeFromTop (11);
+        auto label = bounds.removeFromTop (14);
         printedLabels.push_back ({ label, caption, false });
         slider.setBounds (bounds.removeFromTop (knobHeight > 0 ? knobHeight : bounds.getHeight()));
     };
 
+    auto placeSwitch = [this] (juce::Rectangle<int> bounds, MinimoogRocker& rocker,
+                               const juce::String& caption)
+    {
+        auto label = bounds.removeFromTop (13);
+        printedLabels.push_back ({ label, caption, false });
+        rocker.setBounds (bounds.removeFromTop (30).removeFromLeft (50));
+    };
+
     // ---- 控制器 ------------------------------------------------------------
     {
-        auto col = controllersArea.reduced (4, 2);
+        auto col = controllersArea.reduced (6, 2);
+        auto top = col.removeFromTop (126);
 
-        auto top = col.removeFromTop (66);
-        auto tuneArea = top.removeFromLeft (66);
-        placeKnob (tuneArea, masterTune, NI_TXT ("调音"));
-        top.removeFromLeft (4);
-        auto modSwitch = top.removeFromTop (30).removeFromRight (52);
-        oscMod.setBounds (modSwitch);
-        printedLabels.push_back ({ top.removeFromTop (12), NI_TXT ("振荡调制"), false });
+        auto tuneArea = top.removeFromLeft (90);
+        placeKnob (tuneArea, masterTune, NI_TXT ("调音"), 100);
 
-        col.removeFromTop (4);
-        auto knobs = col.removeFromTop (70);
-        auto glideArea = knobs.removeFromLeft (66);
-        placeKnob (glideArea, glideKnob, NI_TXT ("滑音"));
-        knobs.removeFromLeft (2);
-        auto mixArea = knobs.removeFromLeft (66);
-        placeKnob (mixArea, modMix, NI_TXT ("调制混合"));
+        top.removeFromLeft (12);
+        placeSwitch (top.removeFromTop (54), unison, NI_TXT ("齐奏"));
 
-        col.removeFromTop (6);
-        auto smallSwitches = col.removeFromTop (40);
-        auto egArea = smallSwitches.removeFromLeft (60);
-        osc3FilterEg.setBounds (egArea.removeFromTop (26));
-        printedLabels.push_back ({ egArea.removeFromTop (18), NI_TXT ("OSC3"), false });
-        smallSwitches.removeFromLeft (6);
-        auto noiseArea = smallSwitches.removeFromLeft (60);
-        noiseLfo.setBounds (noiseArea.removeFromTop (26));
-        printedLabels.push_back ({ noiseArea.removeFromTop (18), NI_TXT ("噪声"), false });
+        col.removeFromTop (36);
+        auto row = col.removeFromTop (126);
+        auto glideArea = row.removeFromLeft (90);
+        placeKnob (glideArea, glideKnob, NI_TXT ("滑音"), 100);
+        row.removeFromLeft (12);
+        auto mixArea = row.removeFromLeft (90);
+        placeKnob (mixArea, modMix, NI_TXT ("调制混合"), 100);
+
+        col.removeFromTop (76);
+        auto switches = col.removeFromTop (58);
+        auto egArea = switches.removeFromLeft (66);
+        placeSwitch (egArea, osc3FilterEg, NI_TXT ("OSC3 包络"));
+        switches.removeFromLeft (10);
+        auto noiseArea = switches.removeFromLeft (66);
+        placeSwitch (noiseArea, noiseLfo, NI_TXT ("噪声"));
     }
 
     // ---- 振荡器组 ----------------------------------------------------------
     {
-        auto col = oscillatorArea.reduced (4, 2);
+        auto col = oscillatorArea.reduced (6, 2);
 
         for (int i = 0; i < 3; ++i)
         {
-            auto row = col.removeFromTop (150);
-            auto title = row.removeFromTop (16);
+            auto row = col.removeFromTop (160);
+            auto title = row.removeFromTop (20);
             printedLabels.push_back ({ title, NI_TXT ("振荡器 ") + juce::String (i + 1),
                                        true, juce::Justification::centredLeft });
-            auto content = row.removeFromTop (104);
 
-            auto rangeArea = content.removeFromLeft (66);
-            printedLabels.push_back ({ rangeArea.removeFromTop (10), "RANGE", false });
-            rangeSwitch[i].setBounds (rangeArea.removeFromTop (58));
+            auto content = row.removeFromTop (136);
+            auto coarseArea = content.removeFromLeft (98);
+            printedLabels.push_back ({ coarseArea.removeFromTop (16), NI_TXT ("粗调"), false });
+            rangeSwitch[i].setBounds (coarseArea.removeFromTop (100));
 
-            content.removeFromLeft (2);
-            auto freqArea = content.removeFromLeft (60);
-            placeKnob (freqArea, tune[i], NI_TXT ("频率"), 78);
+            content.removeFromLeft (6);
+            auto fineArea = content.removeFromLeft (84);
+            placeKnob (fineArea, tune[i], NI_TXT ("细调"), 90);
 
-            content.removeFromLeft (2);
-            auto waveArea = content.removeFromLeft (66);
-            printedLabels.push_back ({ waveArea.removeFromTop (10), "WAVEFORM", false });
-            waveSwitch[i].setBounds (waveArea.removeFromTop (58));
-            waveName[(size_t) i].setBounds (waveArea.removeFromTop (12));
-
-            if (i == 2)
-            {
-                content.removeFromLeft (2);
-                auto controlArea = content.removeFromLeft (58);
-                osc3Control.setBounds (controlArea.removeFromTop (26));
-                printedLabels.push_back ({ controlArea.removeFromTop (12),
-                                           NI_TXT ("OSC.3 控制"), false });
-            }
+            content.removeFromLeft (6);
+            auto waveArea = content.removeFromLeft (98);
+            printedLabels.push_back ({ waveArea.removeFromTop (16), NI_TXT ("波形"), false });
+            waveName[(size_t) i].setBounds (waveArea.removeFromTop (20));
+            waveSwitch[i].setBounds (waveArea.removeFromTop (90));
         }
+
+        auto controlRow = col.removeFromTop (38);
+        placeSwitch (controlRow, osc3Control, NI_TXT ("振荡器 3 控制"));
     }
 
     // ---- 混音器 ------------------------------------------------------------
     {
-        auto col = mixerArea.reduced (4, 2);
-        col.removeFromTop (4);
+        auto col = mixerArea.reduced (6, 2);
 
         juce::Slider* levels[] = { &oscLevel[0], &oscLevel[1], &oscLevel[2] };
 
         for (int i = 0; i < 3; ++i)
         {
-            auto row = col.removeFromTop (86);
-            printedLabels.push_back ({ row.removeFromLeft (42), NI_TXT ("振荡器 ")
+            auto row = col.removeFromTop (103);
+            printedLabels.push_back ({ row.removeFromLeft (58), NI_TXT ("振荡器 ")
                                                          + juce::String (i + 1), false });
-            auto knobArea = row.removeFromLeft (52);
-            placeKnob (knobArea, *levels[i], "VOLUME");
-            row.removeFromLeft (4);
-            oscOn[i].setBounds (row.removeFromTop (28).removeFromLeft (44));
+            auto knobArea = row.removeFromLeft (72);
+            placeKnob (knobArea, *levels[i], NI_TXT ("音量"), 84);
+            row.removeFromLeft (6);
+            oscOn[i].setBounds (row.withSizeKeepingCentre (54, 30));
         }
 
-        col.removeFromTop (2);
-        auto noiseRow = col.removeFromTop (86);
-        printedLabels.push_back ({ noiseRow.removeFromLeft (42), NI_TXT ("噪声"), false });
-        auto noiseKnob = noiseRow.removeFromLeft (52);
-        placeKnob (noiseKnob, noiseLevelSlider, "VOLUME");
-        noiseRow.removeFromLeft (4);
-        noiseType.setBounds (noiseRow.removeFromTop (28).removeFromLeft (44));
+        auto noiseRow = col.removeFromTop (103);
+        printedLabels.push_back ({ noiseRow.removeFromLeft (58), NI_TXT ("噪声"), false });
+        auto noiseKnob = noiseRow.removeFromLeft (72);
+        placeKnob (noiseKnob, noiseLevelSlider, NI_TXT ("音量"), 84);
+        noiseRow.removeFromLeft (6);
+        noiseType.setBounds (noiseRow.withSizeKeepingCentre (54, 30));
 
-        auto externalRow = col.removeFromTop (78);
-        printedLabels.push_back ({ externalRow.removeFromLeft (42), NI_TXT ("外部输入"), false });
-        auto extKnob = externalRow.removeFromLeft (52);
-        placeKnob (extKnob, externalInputVolume, "VOLUME");
-        externalRow.removeFromLeft (4);
-        externalInputOn.setBounds (externalRow.removeFromTop (28).removeFromLeft (44));
-
-        auto lamp = mixerArea.removeFromTop (0);
-        juce::ignoreUnused (lamp);
+        auto distRow = col.removeFromTop (103);
+        printedLabels.push_back ({ distRow.removeFromLeft (58), NI_TXT ("失真"), false });
+        auto distKnob = distRow.removeFromLeft (72);
+        placeKnob (distKnob, distortion, NI_TXT ("失真量"), 84);
+        distRow.removeFromLeft (6);
+        distortionOn.setBounds (distRow.withSizeKeepingCentre (54, 30));
     }
 
     // ---- 修饰器 ------------------------------------------------------------
     {
-        auto col = modifiersArea.reduced (4, 2);
+        auto col = modifiersArea.reduced (6, 2);
 
-        auto row = col.removeFromTop (72);
-        auto c1 = row.removeFromLeft (78);
-        placeKnob (c1, cutoff, NI_TXT ("截止频率"));
-        row.removeFromLeft (2);
-        auto c2 = row.removeFromLeft (78);
-        placeKnob (c2, emphasis, NI_TXT ("滤波共振"));
-        auto c3 = row.removeFromLeft (78);
-        placeKnob (c3, contour, NI_TXT ("包络量"));
+        printedLabels.push_back ({ col.removeFromTop (20), NI_TXT ("滤波器"), true });
 
-        col.removeFromTop (2);
-        auto switches = col.removeFromTop (40);
-        auto fm = switches.removeFromLeft (64);
-        filterMod.setBounds (fm.removeFromTop (26));
-        printedLabels.push_back ({ fm.removeFromTop (12), NI_TXT ("滤波调制"), false });
+        auto row1 = col.removeFromTop (100);
+        auto c1 = row1.removeFromLeft (82);
+        placeKnob (c1, cutoff, NI_TXT ("截止"), 90);
+        row1.removeFromLeft (2);
+        auto c2 = row1.removeFromLeft (82);
+        placeKnob (c2, emphasis, NI_TXT ("共振"), 90);
+        auto c3 = row1.removeFromLeft (82);
+        placeKnob (c3, contour, NI_TXT ("包络量"), 90);
+
+        auto row2 = col.removeFromTop (100);
+        auto f1 = row2.removeFromLeft (82);
+        placeKnob (f1, filterAttack, NI_TXT ("起音"), 90);
+        row2.removeFromLeft (2);
+        auto f2 = row2.removeFromLeft (82);
+        placeKnob (f2, filterDecay, NI_TXT ("衰减"), 90);
+        auto f3 = row2.removeFromLeft (82);
+        placeKnob (f3, filterSustainLevel, NI_TXT ("延音"), 90);
+
+        col.removeFromTop (20);
+        auto switches = col.removeFromTop (58);
+        auto k1 = switches.removeFromLeft (70);
+        placeSwitch (k1, keyTrack1, NI_TXT ("跟随 1/3"));
         switches.removeFromLeft (4);
-        auto k1 = switches.removeFromLeft (52);
-        keyTrack1.setBounds (k1.removeFromTop (26));
-        printedLabels.push_back ({ k1.removeFromTop (12), NI_TXT ("键盘 1"), false });
+        auto k2 = switches.removeFromLeft (70);
+        placeSwitch (k2, keyTrack2, NI_TXT ("跟随 2/3"));
         switches.removeFromLeft (4);
-        auto k2 = switches.removeFromLeft (52);
-        keyTrack2.setBounds (k2.removeFromTop (26));
-        printedLabels.push_back ({ k2.removeFromTop (12), NI_TXT ("键盘 2"), false });
-
-        col.removeFromTop (4);
-        printedLabels.push_back ({ col.removeFromTop (14), NI_TXT ("滤波包络"), true });
-        auto fRow = col.removeFromTop (72);
-        auto fa = fRow.removeFromLeft (78);
-        placeKnob (fa, filterAttack, NI_TXT ("起音"));
-        fRow.removeFromLeft (2);
-        auto fd = fRow.removeFromLeft (78);
-        placeKnob (fd, filterDecay, NI_TXT ("衰减"));
-        auto fs = fRow.removeFromLeft (78);
-        placeKnob (fs, filterSustainLevel, NI_TXT ("延音"));
-
-        col.removeFromTop (4);
-        printedLabels.push_back ({ col.removeFromTop (14), NI_TXT ("响度包络"), true });
-        auto aRow = col.removeFromTop (72);
-        auto aa = aRow.removeFromLeft (78);
-        placeKnob (aa, ampAttack, NI_TXT ("起音"));
-        aRow.removeFromLeft (2);
-        auto ad = aRow.removeFromLeft (78);
-        placeKnob (ad, ampDecay, NI_TXT ("衰减"));
-        auto as = aRow.removeFromLeft (78);
-        placeKnob (as, ampSustainLevel, NI_TXT ("延音"));
-    }
-
-    // ---- 输出 --------------------------------------------------------------
-    {
-        auto col = outputArea.reduced (4, 6);
-        auto knobArea = col.removeFromTop (78);
-        placeKnob (knobArea, volume, NI_TXT ("主音量"));
-
-        col.removeFromTop (14);
-        auto mainRow = col.removeFromTop (44);
-        mainOut.setBounds (mainRow.removeFromTop (28).removeFromLeft (44));
-        printedLabels.push_back ({ mainRow.removeFromTop (14), NI_TXT ("主输出"), false });
-
-        col.removeFromTop (10);
-        auto a440Row = col.removeFromTop (44);
-        a440.setBounds (a440Row.removeFromTop (28).removeFromLeft (44));
-        printedLabels.push_back ({ a440Row.removeFromTop (14), "A-440", false });
-
-        col.removeFromTop (18);
-        printedLabels.push_back ({ col.removeFromTop (18), NI_TXT ("耳机"), false });
+        auto rel = switches.removeFromLeft (70);
+        placeSwitch (rel, releaseSwitch, NI_TXT ("释键"));
 
         col.removeFromTop (24);
-        auto powerRow = col.removeFromTop (44);
-        power.setBounds (powerRow.removeFromTop (28).removeFromLeft (44));
-        printedLabels.push_back ({ powerRow.removeFromTop (14), NI_TXT ("电源"), false });
-    }
-
-    // ---- 键盘区 ------------------------------------------------------------
-    {
-        auto leftBlock = keyboardArea.removeFromLeft (232);
-        auto left = leftBlock.reduced (8, 8);
-
-        auto lfoArea = left.removeFromTop (46).removeFromLeft (60);
-        placeKnob (lfoArea, lfoRate, NI_TXT ("LFO 速率"), 34);
-
-        auto switchRow = left.removeFromTop (40);
-        auto glideArea = switchRow.removeFromLeft (54);
-        glideSwitch.setBounds (glideArea.removeFromTop (24));
-        printedLabels.push_back ({ glideArea.removeFromTop (11), NI_TXT ("滑音"), false });
-        switchRow.removeFromLeft (8);
-        auto decayArea = switchRow.removeFromLeft (54);
-        releaseSwitch.setBounds (decayArea.removeFromTop (24));
-        printedLabels.push_back ({ decayArea.removeFromTop (11), NI_TXT ("衰减"), false });
-
-        auto wheels = leftBlock.withTrimmedTop (86).reduced (16, 0);
-        auto pitchArea = wheels.removeFromLeft (34);
-        pitchWheel.setBounds (pitchArea.removeFromTop (52));
-        printedLabels.push_back ({ pitchArea.removeFromTop (12), NI_TXT ("弯音"), false });
-        wheels.removeFromLeft (12);
-        auto modArea = wheels.removeFromLeft (34);
-        modWheel.setBounds (modArea.removeFromTop (52));
-        printedLabels.push_back ({ modArea.removeFromTop (12), NI_TXT ("调制"), false });
-
-        keyboard.setBounds (keyboardArea.reduced (12, 8));
+        printedLabels.push_back ({ col.removeFromTop (20), NI_TXT ("响度包络"), true });
+        auto ampRow = col.removeFromTop (100);
+        auto a1 = ampRow.removeFromLeft (82);
+        placeKnob (a1, ampAttack, NI_TXT ("起音"), 90);
+        ampRow.removeFromLeft (2);
+        auto a2 = ampRow.removeFromLeft (82);
+        placeKnob (a2, ampDecay, NI_TXT ("衰减"), 90);
+        auto a3 = ampRow.removeFromLeft (82);
+        placeKnob (a3, ampSustainLevel, NI_TXT ("延音"), 90);
     }
 }
 
 //==============================================================================
 void MinimoogEditor::paint (juce::Graphics& g)
 {
-    // Wooden body.
     g.setGradientFill (juce::ColourGradient (kWoodMid, 0.0f, 0.0f,
                                              kWoodDark, 0.0f, (float) getHeight(), false));
     g.fillAll();
@@ -1043,36 +883,33 @@ void MinimoogEditor::paint (juce::Graphics& g)
         g.drawHorizontalLine (y + 3, 0.0f, (float) getWidth());
     }
 
-    // The HM strip sits on top like a little digital overlay.
     g.setColour (juce::Colour (0xff1b1b1e));
     g.fillRect (0, 0, getWidth(), kStripHeight);
     g.setColour (juce::Colour (0xff323238));
     g.drawHorizontalLine (kStripHeight - 1, 0.0f, (float) getWidth());
 
     g.setColour (kCream);
-    g.setFont (theme::font (13.0f, true));
+    g.setFont (theme::font (16.0f, true));
     g.drawText (NI_TXT ("迷你穆格 · MODEL D"),
-                juce::Rectangle<int> (kCheekWidth + 8, 3, 180, 17),
+                juce::Rectangle<int> (kCheekWidth + 6, 4, 200, 20),
                 juce::Justification::centredLeft);
     g.setColour (kDimCream);
-    g.setFont (theme::font (8.5f));
-    g.drawText (NI_TXT ("MODEL D · 三段振荡器"), 
-                juce::Rectangle<int> (kCheekWidth + 8, 20, 180, 12),
+    g.setFont (theme::font (10.5f));
+    g.drawText (NI_TXT ("三段振荡器 · 梯形滤波 · 中文面板"),
+                juce::Rectangle<int> (kCheekWidth + 6, 24, 220, 14),
                 juce::Justification::centredLeft);
 
-    // Black front panel.
     g.setColour (kPanel);
     g.fillRect (panelArea);
     g.setColour (kPanelEdge);
     g.drawRect (panelArea, 1);
 
-    // Separators between the sections.
     g.setColour (kDimCream.withAlpha (0.35f));
 
-    for (const auto& section : { controllersArea, oscillatorArea, mixerArea, modifiersArea })
+    for (const auto& section : { controllersArea, oscillatorArea, mixerArea })
         if (section.getWidth() > 0)
-            g.drawVerticalLine (section.getRight() + 3, (float) panelArea.getY() + 6.0f,
-                                (float) panelArea.getBottom() - 6.0f);
+            g.drawVerticalLine (section.getRight() + 4, (float) panelArea.getY() + 8.0f,
+                                (float) panelArea.getBottom() - 8.0f);
 
     if (controllersArea.getWidth() > 0)
     {
@@ -1080,68 +917,24 @@ void MinimoogEditor::paint (juce::Graphics& g)
         drawSectionTitle (g, oscillatorArea, NI_TXT ("振荡器组"));
         drawSectionTitle (g, mixerArea, NI_TXT ("混音器"));
         drawSectionTitle (g, modifiersArea, NI_TXT ("修饰器"));
-        drawSectionTitle (g, outputArea, NI_TXT ("输出"));
     }
 
     for (const auto& label : printedLabels)
     {
         g.setColour (label.title ? kCream : kDimCream);
-        g.setFont (theme::font (label.title ? 9.5f : 8.0f, label.title));
+        g.setFont (theme::font (label.title ? 13.5f : 11.5f, label.title));
         g.drawFittedText (label.text, label.bounds, label.justification, 2);
     }
 
-    // The overload lamp watches the sum of the mixer, as on the original.
-    if (const auto* track = currentTrack())
-    {
-        const auto& p = track->minimoog;
-        const auto sum = p.oscs[0].level + p.oscs[1].level + p.oscs[2].level + p.noiseLevel;
-        const auto lamp = juce::Rectangle<int> (mixerArea.getRight() - 20, mixerArea.getY() + 8, 8, 8);
-        g.setColour (sum > 1.0f ? kOrange : juce::Colour (0xff31402f));
-        g.fillEllipse (lamp.toFloat());
-        g.setColour (kDimCream);
-        g.setFont (theme::font (7.0f));
-        g.drawText (NI_TXT ("过载"), lamp.translated (-24, 12).withSize (56, 10),
-                    juce::Justification::centred);
-    }
-
-    // The power LED.
-    const auto led = juce::Rectangle<int> (outputArea.getX() + 8, outputArea.getBottom() - 46, 7, 7);
-    g.setColour (power.getState() ? juce::Colour (0xffd94a2c) : juce::Colour (0xff4a1c12));
-    g.fillEllipse (led.toFloat());
-
-    // Screws on the wooden frame.
     g.setColour (juce::Colours::black.withAlpha (0.45f));
 
-    for (const auto& p : { juce::Point<int> (kCheekWidth / 2, kStripHeight + 8),
-                           juce::Point<int> (getWidth() - kCheekWidth / 2, kStripHeight + 8),
-                           juce::Point<int> (kCheekWidth / 2, panelArea.getBottom() + 4),
+    for (const auto& p : { juce::Point<int> (kCheekWidth / 2, panelArea.getY() + 10),
+                           juce::Point<int> (getWidth() - kCheekWidth / 2, panelArea.getY() + 10),
+                           juce::Point<int> (kCheekWidth / 2, panelArea.getBottom() - 10),
                            juce::Point<int> (getWidth() - kCheekWidth / 2,
-                                             panelArea.getBottom() + 4) })
+                                             panelArea.getBottom() - 10) })
         g.fillEllipse (juce::Rectangle<float> ((float) p.x - 2.0f, (float) p.y - 2.0f,
                                                4.0f, 4.0f));
-}
-
-//==============================================================================
-void MinimoogEditor::handleNoteOn (juce::MidiKeyboardState*, int, int midiNoteNumber,
-                                   float velocity)
-{
-    auto* track = currentTrack();
-
-    if (track == nullptr)
-        return;
-
-    previewMidiNote = midiNoteNumber;
-    const auto frequency = 440.0 * std::pow (2.0, (midiNoteNumber - 69) / 12.0);
-    audio.triggerPreviewMinimoogNote (track->minimoog, frequency, velocity * 127.0f);
-}
-
-void MinimoogEditor::handleNoteOff (juce::MidiKeyboardState*, int, int midiNoteNumber, float)
-{
-    if (midiNoteNumber == previewMidiNote)
-    {
-        previewMidiNote = -1;
-        audio.releasePreviewNote();
-    }
 }
 
 //==============================================================================
@@ -1300,17 +1093,20 @@ void MinimoogEditor::setParamForTest (int which, double value)
         case 0: target = &velocityKnob; break;
         case 1: target = &glideKnob; break;
         case 2: target = &modMix; break;
-        case 3: target = &cutoff; break;
-        case 4: target = &emphasis; break;
-        case 5: target = &contour; break;
-        case 6: target = &filterAttack; break;
-        case 7: target = &filterDecay; break;
-        case 8: target = &ampAttack; break;
-        case 9: target = &ampDecay; break;
-        case 10: target = &volume; break;
-        case 11: target = &oscLevel[0]; break;
-        case 12: target = &noiseLevelSlider; break;
+        case 3: target = &mainVolume; break;
+        case 4: target = &cutoff; break;
+        case 5: target = &emphasis; break;
+        case 6: target = &contour; break;
+        case 7: target = &filterAttack; break;
+        case 8: target = &filterDecay; break;
+        case 9: target = &filterSustainLevel; break;
+        case 10: target = &ampAttack; break;
+        case 11: target = &ampDecay; break;
+        case 12: target = &ampSustainLevel; break;
         case 13: target = &masterTune; break;
+        case 14: target = &oscLevel[0]; break;
+        case 15: target = &noiseLevelSlider; break;
+        case 16: target = &distortion; break;
         default: break;
     }
 
@@ -1368,24 +1164,25 @@ juce::Rectangle<int> MinimoogEditor::getControlBoundsForTest (int which) const
         case 0: return presetBar.getComboBoxBoundsForTest();
         case 1: return polyphonyBox.getBounds();
         case 2: return velocityKnob.getBounds();
-        case 3: return rangeSwitch[0].getBounds();
-        case 4: return waveSwitch[0].getBounds();
-        case 5: return tune[1].getBounds();
-        case 6: return oscLevel[0].getBounds();
-        case 7: return noiseLevelSlider.getBounds();
-        case 8: return cutoff.getBounds();
-        case 9: return emphasis.getBounds();
-        case 10: return contour.getBounds();
-        case 11: return filterAttack.getBounds();
-        case 12: return filterDecay.getBounds();
-        case 13: return ampAttack.getBounds();
-        case 14: return ampDecay.getBounds();
-        case 15: return volume.getBounds();
-        case 16: return modWheel.getBounds();
-        case 17: return keyboard.getBounds();
-        case 18: return keyTrack1.getBounds();
-        case 19: return mainOut.getBounds();
-        case 20: return glideKnob.getBounds();
+        case 3: return mainVolume.getBounds();
+        case 4: return rangeSwitch[0].getBounds();
+        case 5: return waveSwitch[0].getBounds();
+        case 6: return tune[1].getBounds();
+        case 7: return oscLevel[0].getBounds();
+        case 8: return noiseLevelSlider.getBounds();
+        case 9: return distortion.getBounds();
+        case 10: return cutoff.getBounds();
+        case 11: return emphasis.getBounds();
+        case 12: return contour.getBounds();
+        case 13: return filterAttack.getBounds();
+        case 14: return filterDecay.getBounds();
+        case 15: return filterSustainLevel.getBounds();
+        case 16: return ampAttack.getBounds();
+        case 17: return ampDecay.getBounds();
+        case 18: return ampSustainLevel.getBounds();
+        case 19: return keyTrack1.getBounds();
+        case 20: return releaseSwitch.getBounds();
+        case 21: return glideKnob.getBounds();
         default: break;
     }
 

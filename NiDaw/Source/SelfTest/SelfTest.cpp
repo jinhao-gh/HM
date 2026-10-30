@@ -8597,7 +8597,7 @@ namespace selftest
             }
         }
 
-        beginTest (NI_TXT ("the Minimoog instrument has its five-section panel"));
+        beginTest (NI_TXT ("the Minimoog instrument has its four-section panel"));
 
         {
             auto& sectionLanes = component.getTrackArea();
@@ -8654,7 +8654,7 @@ namespace selftest
             check (editor.getPolyphonyForTest() == 8,
                    NI_TXT ("the polyphony selector writes the voice count"));
 
-            editor.setParamForTest (3, -1.0);     // cutoff knob down
+            editor.setParamForTest (10, -1.0);    // cutoff knob down
             pump();
             check (document.findTrack (miniId)->minimoog.filterCutoffHz < 400.0f,
                    NI_TXT ("the cutoff knob writes back (got ")

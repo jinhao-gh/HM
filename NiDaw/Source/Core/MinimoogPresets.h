@@ -88,6 +88,7 @@ inline void fatBass (MinimoogParams& p)
     filterEnv (p, 0.002f, 0.35f, false, true);
     ampEnv (p, 0.002f, 0.40f, false, true);
     p.volume = 0.80f;
+    p.unison = true;
 }
 
 inline void funkBass (MinimoogParams& p)
@@ -98,6 +99,8 @@ inline void funkBass (MinimoogParams& p)
     filterEnv (p, 0.001f, 0.18f, true, false);
     ampEnv (p, 0.001f, 0.25f, true, false);
     p.volume = 0.78f;
+    p.distortion = 0.25f;
+    p.distortionOn = true;
 }
 
 inline void subBass (MinimoogParams& p)
@@ -141,6 +144,7 @@ inline void classicLead (MinimoogParams& p)
     ampEnv (p, 0.005f, 0.40f, false, true);
     glide (p, 0.12f);
     p.volume = 0.72f;
+    p.unison = true;
 }
 
 inline void fifthLead (MinimoogParams& p)
@@ -153,6 +157,7 @@ inline void fifthLead (MinimoogParams& p)
     ampEnv (p, 0.005f, 0.40f, false, true);
     glide (p, 0.08f);
     p.volume = 0.72f;
+    p.unison = true;
 }
 
 inline void whistleLead (MinimoogParams& p)
@@ -179,6 +184,9 @@ inline void emersonLead (MinimoogParams& p)
     ampEnv (p, 0.005f, 0.70f, false, true);
     glide (p, 0.05f);
     p.volume = 0.70f;
+    p.unison = true;
+    p.distortion = 0.3f;
+    p.distortionOn = true;
 }
 
 inline void brassLead (MinimoogParams& p)
@@ -190,6 +198,8 @@ inline void brassLead (MinimoogParams& p)
     filterEnv (p, 0.030f, 0.50f, false, true);
     ampEnv (p, 0.020f, 0.40f, false, true);
     p.volume = 0.74f;
+    p.distortion = 0.1f;
+    p.distortionOn = true;
 }
 
 inline void warmPad (MinimoogParams& p)
@@ -260,6 +270,8 @@ inline void brassEnsemble (MinimoogParams& p)
     filterEnv (p, 0.060f, 0.40f, false, true);
     ampEnv (p, 0.030f, 0.40f, false, true);
     p.volume = 0.72f;
+    p.distortion = 0.12f;
+    p.distortionOn = true;
 }
 
 inline void trumpet (MinimoogParams& p)
@@ -310,6 +322,8 @@ inline void pluck (MinimoogParams& p)
     filterEnv (p, 0.001f, 0.15f, true, false);
     ampEnv (p, 0.001f, 0.30f, true, false);
     p.volume = 0.75f;
+    p.distortion = 0.1f;
+    p.distortionOn = true;
 }
 
 inline void xylophone (MinimoogParams& p)
@@ -341,6 +355,8 @@ inline void steelDrum (MinimoogParams& p)
     filterEnv (p, 0.001f, 0.50f, true, false);
     ampEnv (p, 0.001f, 0.80f, true, false);
     p.volume = 0.66f;
+    p.distortion = 0.15f;
+    p.distortionOn = true;
 }
 
 inline void marimba (MinimoogParams& p)
@@ -386,6 +402,8 @@ inline void siren (MinimoogParams& p)
     filterEnv (p, 0.050f, 0.40f, false, true);
     ampEnv (p, 0.010f, 0.40f, false, true);
     p.volume = 0.65f;
+    p.distortion = 0.35f;
+    p.distortionOn = true;
 }
 
 inline void rocket (MinimoogParams& p)
@@ -398,6 +416,8 @@ inline void rocket (MinimoogParams& p)
     ampEnv (p, 0.010f, 2.00f, false, true);
     modulation (p, 1.0f, 0.40f, false, true);
     p.volume = 0.60f;
+    p.distortion = 0.4f;
+    p.distortionOn = true;
 }
 
 inline void underwater (MinimoogParams& p)

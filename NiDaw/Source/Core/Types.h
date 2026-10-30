@@ -350,6 +350,11 @@ struct MinimoogParams
     bool  glideOn = false;
     float modMix = 0.0f;              // 0 = oscillator 3, 1 = noise
     float modDepth = 0.0f;            // 0 .. 1, the mod wheel
+    /** Three detuned copies of the oscillator bank, for the fat lead/bass sound. */
+    bool  unison = false;
+    /** Pre-filter overdrive, 0..1; the switch enables it. */
+    float distortion = 0.0f;
+    bool  distortionOn = false;
     bool  oscModOn = false;
     bool  filterModOn = false;
     /** false: oscillator 3 keeps the C4 reference instead of following the key. */

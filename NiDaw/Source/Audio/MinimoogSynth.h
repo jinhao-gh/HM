@@ -114,7 +114,7 @@ inline double rangeMultiplier (MinimoogRange range) noexcept
 {
     switch (range)
     {
-        case MinimoogRange::lo:     return 1.0 / 64.0;
+        case MinimoogRange::lo:     return 1.0 / 256.0;
         case MinimoogRange::feet32: return 0.25;
         case MinimoogRange::feet16: return 0.5;
         case MinimoogRange::feet8:  return 1.0;

@@ -203,6 +203,14 @@ public:
     {
         constexpr double sampleRate = 48000.0;
 
+        beginTest ("the LO range is slow enough for an LFO");
+
+        {
+            expectWithinAbsoluteError (minimoog::rangeMultiplier (MinimoogRange::lo),
+                                       1.0 / 256.0, 1.0e-9);
+            expectLessThan (minimoog::rangeMultiplier (MinimoogRange::lo), 1.0 / 64.0);
+        }
+
         beginTest ("the oscillator ranges multiply the note pitch exactly");
 
         {

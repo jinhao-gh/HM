@@ -6,6 +6,9 @@ HM — third-party notices
    under the GNU Affero General Public License v3.0 and a commercial JUCE
    licence. The full JUCE licence text is in
    NiDaw/external/JUCE/LICENSE.md. HM is distributed under AGPL-3.0.
+   JUCE itself bundles third-party components (HarfBuzz, Ogg/Vorbis, PNG, etc.)
+   under their own licences; see JUCE's LICENSE.md and the licence files in the
+   relevant module subdirectories.
 
 2. DX7 factory voice data
    The 32 voices in NiDaw/Source/Core/Dx7FactoryPresets.h are derived from the

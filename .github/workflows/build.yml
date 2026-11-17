@@ -1,0 +1,27 @@
+name: Windows build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build HM
+        shell: cmd
+        run: work\build_app.bat NiDaw
+
+      - name: Upload HM.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: HM-windows-x64
+          path: work/app-build5/NiDaw_artefacts/Release/HM.exe
+          if-no-files-found: error

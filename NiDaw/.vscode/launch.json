@@ -1,7 +1,24 @@
 {
-    // 使用 IntelliSense 了解相关属性。 
-    // 悬停以查看现有属性的描述。
-    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": []
+    "configurations": [
+        {
+            "name": "HM: run (Release)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../work/app-build5/NiDaw_artefacts/Release/HM.exe",
+            "cwd": "${workspaceFolder}/../work/app-build5",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "HM: build app"
+        },
+        {
+            "name": "HM: run (no build)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../work/app-build5/NiDaw_artefacts/Release/HM.exe",
+            "cwd": "${workspaceFolder}/../work/app-build5",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        }
+    ]
 }

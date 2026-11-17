@@ -1,0 +1,31 @@
+HM — third-party notices
+
+1. JUCE
+   This project vendors JUCE 8.0.15 under NiDaw/external/JUCE.
+   JUCE is Copyright (c) Raw Material Software Limited and is dual-licensed
+   under the GNU Affero General Public License v3.0 and a commercial JUCE
+   licence. The full JUCE licence text is in
+   NiDaw/external/JUCE/LICENSE.md. HM is distributed under AGPL-3.0.
+
+2. DX7 factory voice data
+   The 32 voices in NiDaw/Source/Core/Dx7FactoryPresets.h are derived from the
+   public DX7 patch collection https://www.npmjs.com/package/dx7-patches
+   (compiled by Glenn Scott from the Yamaha DX7 factory ROM-1A). The voices are
+   Yamaha's; the Chinese names, category layout and conversion to HM's engine are
+   this project's. HM is not affiliated with, endorsed by, or sponsored by Yamaha.
+
+3. Trademarks
+   "Minimoog", "Model D", "Moog", "DX7", "Yamaha" and other product names are
+   trademarks of their respective owners. They are used here only to describe
+   the type of sound/architecture being modelled. HM does not include or use the
+   official logos of those companies.
+
+4. Audio assets
+   No third-party sample libraries are included in this repository. The
+   application synthesises its built-in sounds; user-imported audio remains the
+   responsibility of the user.
+
+5. AI assistance
+   Parts of the code were written with AI coding assistants and reviewed by the
+   project author. AI output is not guaranteed to be free of third-party code;
+   re-check licences before redistributing modified versions.

@@ -1,5 +1,7 @@
 # HM
 
+[下载 Windows x64 版](https://github.com/jinhao-gh/HM/releases/latest)
+
 HM 是一个面向 Windows 的开源数字音频工作站（DAW），使用 C++20、JUCE 8 和 CMake 构建。它把时间线编曲、钢琴卷帘、混音器、VST3 宿主、音频导出，以及一套内置合成器/鼓机放在同一个原生应用里。
 
 > 这是个人独立开发的项目，不是商业产品。内置的 FM、Minimoog 风格乐器是**非官方**实现，与 Yamaha、Moog 没有任何关联。

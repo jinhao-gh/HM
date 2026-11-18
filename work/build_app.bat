@@ -1,7 +1,7 @@
 @echo off
 setlocal
 rem Usage: build_app.bat [target] [clean]
-rem   target defaults to NiDaw. "clean" throws the build directory away first
+rem   target defaults to HMDAW. "clean" throws the build directory away first
 rem   (make_release.bat does that; normal development builds are incremental).
 rem
 rem Header dependencies work again: fix_showincludes_prefix.ps1 repairs the
@@ -17,10 +17,10 @@ if not exist "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" (
 )
 call "%VSPATH%\VC\Auxiliary\Build\vcvars64.bat" > nul 2>&1
 set "ROOT=%~dp0.."
-set "SRC=%ROOT%\NiDaw"
+set "SRC=%ROOT%\HMDAW"
 set "BLD=%~dp0app-build5"
 set TARGET=%1
-if "%TARGET%"=="" set TARGET=NiDaw
+if "%TARGET%"=="" set TARGET=HMDAW
 if /I "%2"=="clean" (
   if exist "%BLD%\build.ninja" (
     echo %BLD% | findstr /C:"\work\app-build" > nul || (echo REFUSING_TO_CLEAN & exit /b 1)
@@ -51,7 +51,7 @@ findstr /C:"ninja: build stopped" /C:": error " /C:"fatal error" /C:"FAILED:" "%
 if not errorlevel 1 set BUILD_STATUS=1
 if "%BUILD_STATUS%"=="1" ( echo BUILD_FAILED & findstr /C:": error " /C:"fatal error" /C:"FAILED:" "%BLD%\build.log" & exit /b 1 )
 rem A warning-free build is the standard now (see docs/06-testing.md). Warnings
-rem that point at NiDaw's own Source fail the build; warnings from external/JUCE
+rem that point at HMDAW's own Source fail the build; warnings from external/JUCE
 rem are not our business here.
 rem
 rem Two steps, no pipe: a piped findstr swallowed the exit code (so five C4456
@@ -61,7 +61,7 @@ rem before its closing quote is not passed intact, and /R + /C: combinations are
 rem treated literally anyway. Verified by feeding it the log of a build that
 rem really does have a warning in Source.
 findstr /C:"warning C" "%BLD%\build.log" > "%BLD%\warnings.txt"
-findstr /L /C:"NiDaw\Source" "%BLD%\warnings.txt" > "%BLD%\source-warnings.txt"
+findstr /L /C:"HMDAW\Source" "%BLD%\warnings.txt" > "%BLD%\source-warnings.txt"
 if errorlevel 1 goto :nowarnings
 echo WARNINGS_IN_SOURCE_CODE
 type "%BLD%\source-warnings.txt"

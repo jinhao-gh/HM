@@ -2,9 +2,9 @@
 # is exercised end to end. The release script does the same thing.
 param(
     [string] $Out = (Join-Path $PSScriptRoot 'selftest-vst'),
-    [string] $Exe = (Join-Path $PSScriptRoot 'app-build5\NiDaw_artefacts\Release\HM.exe'),
-    [string] $Plugin = (Join-Path $PSScriptRoot 'app-build5\NiDawTestInstrument_artefacts\Release\VST3\HMTestInstrument.vst3')
-    ,[string] $Effect = (Join-Path $PSScriptRoot 'app-build5\NiDawTestEffect_artefacts\Release\VST3\HMTestEffect.vst3')
+    [string] $Exe = (Join-Path $PSScriptRoot 'app-build5\HMDAW_artefacts\Release\HM.exe'),
+    [string] $Plugin = (Join-Path $PSScriptRoot 'app-build5\HMDAWTestInstrument_artefacts\Release\VST3\HMTestInstrument.vst3')
+    ,[string] $Effect = (Join-Path $PSScriptRoot 'app-build5\HMDAWTestEffect_artefacts\Release\VST3\HMTestEffect.vst3')
 )
 
 # Restricted containers only allow writes inside the workspace, and the self

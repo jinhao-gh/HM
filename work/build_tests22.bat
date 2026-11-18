@@ -38,7 +38,7 @@ if /I not "%PREFIX_STATE%"=="OK" (
 cmake -S "%SRC%" -B "%BLD%" -G Ninja -DCMAKE_BUILD_TYPE=Release > "%BLD%\configure.log" 2>&1
 if errorlevel 1 ( echo CONFIGURE_FAILED & findstr /C:"Error" "%BLD%\configure.log" & exit /b 1 )
 echo CONFIGURE_OK
-cmake --build "%BLD%" --target NiDawTests > "%BLD%\build.log" 2>&1
+cmake --build "%BLD%" --target HMDAWTests > "%BLD%\build.log" 2>&1
 rem The log is checked as well as the exit code: a failing vs_link_exe comes back as
 rem -1, which "if errorlevel 1" treats as success.
 set BUILD_STATUS=0
@@ -47,7 +47,7 @@ findstr /C:"ninja: build stopped" /C:": error " /C:"fatal error" /C:"FAILED:" "%
 if not errorlevel 1 set BUILD_STATUS=1
 if "%BUILD_STATUS%"=="1" ( echo BUILD_FAILED & findstr /C:": error " /C:"fatal error" /C:"FAILED:" "%BLD%\build.log" & exit /b 1 )
 rem A warning-free build is the standard now (see docs/06-testing.md). Warnings
-rem that point at NiDaw's own Source fail the build; warnings from external/JUCE
+rem that point at HMDAW's own Source fail the build; warnings from external/JUCE
 rem are not our business here.
 rem
 rem Two steps, no pipe: a piped findstr swallowed the exit code, so a warning in
@@ -55,7 +55,7 @@ rem Source could go straight past this gate. The path pattern has no trailing
 rem backslash on purpose - inside cmd, a pattern that ends with one right before
 rem its closing quote is not passed intact.
 findstr /C:"warning C" "%BLD%\build.log" > "%BLD%\warnings.txt"
-findstr /L /C:"NiDaw\Source" "%BLD%\warnings.txt" > "%BLD%\source-warnings.txt"
+findstr /L /C:"HMDAW\Source" "%BLD%\warnings.txt" > "%BLD%\source-warnings.txt"
 if errorlevel 1 goto :nowarnings
 echo WARNINGS_IN_SOURCE_CODE
 type "%BLD%\source-warnings.txt"

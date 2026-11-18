@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "HM: run (Release)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../work/app-build5/HMDAW_artefacts/Release/HM.exe",
+            "cwd": "${workspaceFolder}/../work/app-build5",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "preLaunchTask": "HM: build app"
+        },
+        {
+            "name": "HM: run (no build)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/../work/app-build5/HMDAW_artefacts/Release/HM.exe",
+            "cwd": "${workspaceFolder}/../work/app-build5",
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        }
+    ]
+}

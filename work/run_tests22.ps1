@@ -2,7 +2,7 @@ param(
     [int] $TimeoutSeconds = 240
 )
 
-$exe = Join-Path $PSScriptRoot 'test-build22\NiDawTests_artefacts\Release\NiDawTests.exe'
+$exe = Join-Path $PSScriptRoot 'test-build22\HMDAWTests_artefacts\Release\HMDAWTests.exe'
 
 # A restricted container (the Codex/CI sandbox this project is developed in)
 # only lets a child process write inside the workspace, while the tests put

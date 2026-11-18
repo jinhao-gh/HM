@@ -4,7 +4,7 @@ HM 是一个面向 Windows 的开源数字音频工作站（DAW），使用 C++2
 
 > 这是个人独立开发的项目，不是商业产品。内置的 FM、Minimoog 风格乐器是**非官方**实现，与 Yamaha、Moog 没有任何关联。
 
-![HM 主界面](NiDaw/docs/images/main.png)
+![HM 主界面](HMDAW/docs/images/main.png)
 
 ## 功能
 
@@ -21,13 +21,13 @@ HM 是一个面向 Windows 的开源数字音频工作站（DAW），使用 C++2
   - Minimoog Model D 风格乐器（单音/复音、力度、齐奏、失真、梯形滤波）
 - **插件**：VST3 乐器与效果器宿主。
 - **工程**：JSON 工程文件、用户预设库、撤销/重做、离线渲染。
-- **质量**：数千条单元测试断言和离屏自检快照（见 `NiDaw/docs/06-testing.md`）。
+- **质量**：数千条单元测试断言和离屏自检快照（见 `HMDAW/docs/06-testing.md`）。
 
-![合成器编辑器](NiDaw/docs/images/synth.png)
+![合成器编辑器](HMDAW/docs/images/synth.png)
 
-![混音器](NiDaw/docs/images/mixer.png)
+![混音器](HMDAW/docs/images/mixer.png)
 
-![Minimoog 风格面板](NiDaw/docs/images/minimoog.png)
+![Minimoog 风格面板](HMDAW/docs/images/minimoog.png)
 
 ## 构建
 
@@ -39,7 +39,7 @@ HM 是一个面向 Windows 的开源数字音频工作站（DAW），使用 C++2
 - Ninja
 - Git
 
-JUCE 8.0.15 已经随仓库放在 `NiDaw/external/JUCE`，正常构建不需要联网。
+JUCE 8.0.15 已经随仓库放在 `HMDAW/external/JUCE`，正常构建不需要联网。
 
 ### 命令
 
@@ -48,7 +48,7 @@ git clone https://github.com/<你的用户名>/<仓库名>.git
 cd <仓库名>
 
 # 构建主程序（Release）
-work\build_app.bat NiDaw
+work\build_app.bat HMDAW
 
 # 构建单元测试
 work\build_tests22.bat
@@ -57,29 +57,29 @@ work\build_tests22.bat
 产物：
 
 ```text
-work/app-build5/NiDaw_artefacts/Release/HM.exe
+work/app-build5/HMDAW_artefacts/Release/HM.exe
 ```
 
 运行：
 
 ```powershell
-.\work\app-build5\NiDaw_artefacts\Release\HM.exe
+.\work\app-build5\HMDAW_artefacts\Release\HM.exe
 ```
 
 强制全量重建：
 
 ```powershell
-work\build_app.bat NiDaw clean
+work\build_app.bat HMDAW clean
 ```
 
 ### 在 VS Code 中构建/运行
 
-用 VS Code 打开 `NiDaw` 子目录（不是仓库根目录），按 `F5` 选择 `HM: run (Release)`；`Ctrl+Shift+B` 只构建。配置见 `NiDaw/.vscode/`。
+用 VS Code 打开 `HMDAW` 子目录（不是仓库根目录），按 `F5` 选择 `HM: run (Release)`；`Ctrl+Shift+B` 只构建。配置见 `HMDAW/.vscode/`。
 
 ## 目录
 
 ```text
-NiDaw/
+HMDAW/
   Source/        应用、音频引擎、UI、测试、自检
   docs/          需求、架构、UI、构建、测试、路线图
   devlog/        开发日志
@@ -111,4 +111,4 @@ work/            构建、测试、发布脚本
 
 ## 贡献
 
-欢迎 issue 和 PR。提交前请先阅读 `NiDaw/docs/05-build-env.md` 和 `NiDaw/docs/06-testing.md`，并确保构建无 `NiDaw/Source` 警告、相关测试通过。
+欢迎 issue 和 PR。提交前请先阅读 `HMDAW/docs/05-build-env.md` 和 `HMDAW/docs/06-testing.md`，并确保构建无 `HMDAW/Source` 警告、相关测试通过。

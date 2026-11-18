@@ -1,5 +1,5 @@
 ﻿# Keep JUCE byte-for-byte so the vendored framework stays untouched.
-NiDaw/external/JUCE/** -text
+HMDAW/external/JUCE/** -text
 
 # Windows scripts need CRLF.
 *.bat text eol=crlf

@@ -17,11 +17,11 @@ jobs:
 
       - name: Build HM
         shell: cmd
-        run: work\build_app.bat NiDaw
+        run: work\build_app.bat HMDAW
 
       - name: Upload HM.exe
         uses: actions/upload-artifact@v4
         with:
           name: HM-windows-x64
-          path: work/app-build5/NiDaw_artefacts/Release/HM.exe
+          path: work/app-build5/HMDAW_artefacts/Release/HM.exe
           if-no-files-found: error

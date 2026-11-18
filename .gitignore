@@ -14,8 +14,8 @@
 /outputs/
 /build/
 
-# Vendored third-party: JUCE 8.0.15 lives in NiDaw\external\JUCE and is tracked
-# so a fresh clone builds offline (see NiDaw\docs\05-build-env.md).
+# Vendored third-party: JUCE 8.0.15 lives in HMDAW\external\JUCE and is tracked
+# so a fresh clone builds offline (see HMDAW\docs\05-build-env.md).
 
 # Editors / OS
 .vs/

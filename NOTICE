@@ -1,17 +1,17 @@
 HM — third-party notices
 
 1. JUCE
-   This project vendors JUCE 8.0.15 under NiDaw/external/JUCE.
+   This project vendors JUCE 8.0.15 under HMDAW/external/JUCE.
    JUCE is Copyright (c) Raw Material Software Limited and is dual-licensed
    under the GNU Affero General Public License v3.0 and a commercial JUCE
    licence. The full JUCE licence text is in
-   NiDaw/external/JUCE/LICENSE.md. HM is distributed under AGPL-3.0.
+   HMDAW/external/JUCE/LICENSE.md. HM is distributed under AGPL-3.0.
    JUCE itself bundles third-party components (HarfBuzz, Ogg/Vorbis, PNG, etc.)
    under their own licences; see JUCE's LICENSE.md and the licence files in the
    relevant module subdirectories.
 
 2. DX7 factory voice data
-   The 32 voices in NiDaw/Source/Core/Dx7FactoryPresets.h are derived from the
+   The 32 voices in HMDAW/Source/Core/Dx7FactoryPresets.h are derived from the
    public DX7 patch collection https://www.npmjs.com/package/dx7-patches
    (compiled by Glenn Scott from the Yamaha DX7 factory ROM-1A). The voices are
    Yamaha's; the Chinese names, category layout and conversion to HM's engine are

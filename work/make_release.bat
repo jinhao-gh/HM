@@ -5,7 +5,7 @@ rem  HM release pipeline: build -> unit tests -> self test -> sync -> zip
 rem
 rem  Takes about 5-6 minutes because the two builds are full clean rebuilds
 rem  (this machine's Ninja does not track header dependencies; see
-rem  NiDaw\docs\05-build-env.md). Any failing step stops the run with exit 1.
+rem  HMDAW\docs\05-build-env.md). Any failing step stops the run with exit 1.
 rem
 rem  Outputs:
 rem    outputs\HM\          dev delivery  (HM.exe + README.md + screenshots\)
@@ -20,9 +20,9 @@ set "WORK=%ROOT%\work"
 set "OUTDEV=%ROOT%\outputs\HM"
 set "OUTPKG=%ROOT%\outputs\HM-win64"
 set "ZIP=%ROOT%\outputs\HM-win64.zip"
-set "APPEXE=%WORK%\app-build5\NiDaw_artefacts\Release\HM.exe"
-set "TESTPLUGIN=%WORK%\app-build5\NiDawTestInstrument_artefacts\Release\VST3\HMTestInstrument.vst3"
-set "TESTEFFECT=%WORK%\app-build5\NiDawTestEffect_artefacts\Release\VST3\HMTestEffect.vst3"
+set "APPEXE=%WORK%\app-build5\HMDAW_artefacts\Release\HM.exe"
+set "TESTPLUGIN=%WORK%\app-build5\HMDAWTestInstrument_artefacts\Release\VST3\HMTestInstrument.vst3"
+set "TESTEFFECT=%WORK%\app-build5\HMDAWTestEffect_artefacts\Release\VST3\HMTestEffect.vst3"
 set "SELFDIR=%WORK%\release-selftest"
 set "TESTLOG=%WORK%\release-tests.log"
 
@@ -40,7 +40,7 @@ if not exist "%OUTPKG%" mkdir "%OUTPKG%"
 if not exist "%SELFDIR%" mkdir "%SELFDIR%"
 
 echo [1/5] building the app (full clean rebuild) ...
-call "%WORK%\build_app.bat" NiDaw clean
+call "%WORK%\build_app.bat" HMDAW clean
 if errorlevel 1 goto :fail
 
 echo.

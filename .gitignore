@@ -32,3 +32,7 @@ desktop.ini
 *.log
 /work/signing/
 
+
+# Google/Firebase demo credentials shipped in JUCE examples (secret-scanned).
+google-services.json
+

@@ -32,5 +32,3 @@ desktop.ini
 *.log
 /work/signing/
 
-# Internal AI/agent handoff notes, not part of the public project.
-/DEEPSEEK_HARNESS_HANDOFF_*.md

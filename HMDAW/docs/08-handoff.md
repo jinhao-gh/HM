@@ -5,7 +5,7 @@
 ## 0. 一分钟版
 
 - 项目是 **HM**（Windows 原生 DAW，以频率为第一公民 + 参考线系统），C++20 + JUCE 8.0.15 + WASAPI。
-- 工作目录：`C:\Users\ASUS\Documents\Codex\2026-09-11\ni`，下面有 `HMDAW\`（源码）、`work\`（脚本与构建目录）、`outputs\`（交付物）。
+- 工作目录：`C:\Users\ASUS\Documents\Codex\2026-09-11\HM`，下面有 `HMDAW\`（源码）、`work\`（脚本与构建目录）、`outputs\`（交付物）。
 - **Git 已初始化但没有历史提交**：交接时 `HMDAW/` 全部是未跟踪文件，不要让 `git clean` / `git reset` 清掉工作区；接手验证后先建立基线提交。
 - 当前基线：**单元测试 37 组 / 5528 条断言全过；离屏自检 1483 项全过**（61 张快照，含真实 VST3 乐器 / 效果器）。
 - 一条命令重出全部交付物：`work\make_release.bat`（约 5–6 分钟，见第 4 节）。

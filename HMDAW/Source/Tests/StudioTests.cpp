@@ -236,6 +236,53 @@ public:
             expectEquals ((int) plan->sources.front().directChannels.size(), 2);
         }
 
+        beginTest ("an audio track plays through studio acoustics");
+        {
+            auto project = makeDefaultProject();
+            const auto id = addTrack (project, TrackKind::audio);
+            auto* track = project.findTrack (id);
+            track->clips.clear();
+            const auto file = writeTempWav ("studio-audio-regression.wav", 1.0);
+            expect (file.existsAsFile(), file.getFullPathName());
+            expectGreaterThan ((juce::int64) file.getSize(), (juce::int64) 0);
+            expectEquals ((int) track->kind, (int) TrackKind::audio);
+
+            Clip clip = makeDefaultClip (project);
+            clip.startTick = 0;
+            clip.lengthTicks = kTicksPerQuarter * 4;
+            clip.loopLengthTicks = clip.lengthTicks;
+            clip.audioFilePath = file.getFullPathName();
+            clip.audioFileName = file.getFileName();
+            track->clips.push_back (clip);
+
+            const auto schedule = buildSchedule (project);
+            expect (schedule.studioPlan != nullptr);
+            expectEquals ((int) schedule.studioPlan->sources.size(), 1);
+            expect (schedule.studioPlan->sources.front().emitterIndex >= 0);
+            expectGreaterThan ((int) schedule.studioPlan->paths.size(), 0);
+            expectEquals ((int) schedule.tracks.front().audioClips.size(), 1);
+
+            juce::AudioBuffer<float> sourceBuffer (2, 512);
+            sourceBuffer.clear();
+            renderAudioClips (schedule.tracks.front().audioClips, sourceBuffer, 0, 512,
+                              0.0, 48000.0, 1.0f, 1.0f);
+            expectGreaterThan (sourceBuffer.getMagnitude (0, 0, 512), 0.0f);
+
+            PlaybackEngine engine;
+            engine.prepare (48000.0, 512);
+            engine.setSchedule (std::make_shared<const RenderSchedule> (schedule));
+            engine.setPlaying (true);
+
+            float peak = 0.0f;
+            for (int i = 0; i < 40; ++i)
+            {
+                engine.renderNextBlock (512);
+                peak = juce::jmax (peak, engine.getOutputBuffer().getMagnitude (0, 0, 512));
+            }
+
+            expectGreaterThan (peak, 0.0f);
+        }
+
         beginTest ("a wall between source and microphones lowers the direct path");
         {
             auto project = makeStudioProject();

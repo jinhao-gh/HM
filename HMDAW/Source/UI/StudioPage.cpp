@@ -1341,10 +1341,26 @@ void StudioInspector::applySlider (juce::Slider& slider)
             }
         else if (node.kind == NodeKind::splitter)
             for (auto& sp : scene.splitters) if (sp.id == nodeId)
-                if (field == "outputs") sp.outputs = juce::jlimit (1, 8, (int) value);
+                if (field == "outputs")
+                {
+                    sp.outputs = juce::jlimit (1, 8, (int) value);
+                    scene.connections.erase (
+                        std::remove_if (scene.connections.begin(), scene.connections.end(),
+                                        [&sp] (const studio::Connection& c)
+                                        { return c.fromNode == sp.id && c.fromPort >= sp.outputs; }),
+                        scene.connections.end());
+                }
         else if (node.kind == NodeKind::combiner)
             for (auto& cm : scene.combiners) if (cm.id == nodeId)
-                if (field == "inputs") cm.inputs = juce::jlimit (1, 8, (int) value);
+                if (field == "inputs")
+                {
+                    cm.inputs = juce::jlimit (1, 8, (int) value);
+                    scene.connections.erase (
+                        std::remove_if (scene.connections.begin(), scene.connections.end(),
+                                        [&cm] (const studio::Connection& c)
+                                        { return c.toNode == cm.id && c.toPort >= cm.inputs; }),
+                        scene.connections.end());
+                }
     });
 }
 

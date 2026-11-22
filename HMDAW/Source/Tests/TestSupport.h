@@ -112,6 +112,7 @@ inline juce::File writeTempWav (const juce::String& name, double seconds)
 {
     const auto file = juce::File::getSpecialLocation (juce::File::tempDirectory)
                           .getChildFile (name);
+    file.getParentDirectory().createDirectory();
     file.deleteFile();
 
     juce::WavAudioFormat wav;

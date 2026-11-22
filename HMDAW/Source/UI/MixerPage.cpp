@@ -165,7 +165,7 @@ public:
         inputBox.setBounds (r.removeFromTop (24));
         r.removeFromTop (6);
 
-        auto knobs = r.removeFromTop (100);
+        auto knobs = r.removeFromTop (90);
         const auto knobWidth = knobs.getWidth() / 2;
         auto trimArea = knobs.removeFromLeft (knobWidth);
         trimLabel.setBounds (trimArea.removeFromTop (12));
@@ -184,7 +184,7 @@ public:
 
         panLabel.setBounds (r.removeFromTop (12));
         pan.setBounds (r.removeFromTop (22));
-        fader.setBounds (r.removeFromTop (180).reduced (20, 4));
+        fader.setBounds (r.removeFromTop (150).reduced (20, 4));
 
         auto buttons = r.removeFromTop (26);
         mute.setBounds (buttons.removeFromLeft (34));

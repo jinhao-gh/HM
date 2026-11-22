@@ -23,6 +23,19 @@ public:
     /** Which of the two beside panels is showing, if any. */
     enum class SidePanel { none, history, presets };
 
+    /** Top-level pages. Session state, never written to the project. */
+    enum class Workspace { studio, arrange, routing, mixer };
+    Workspace workspace = Workspace::arrange;
+
+    void setWorkspace (Workspace newWorkspace)
+    {
+        if (workspace == newWorkspace)
+            return;
+
+        workspace = newWorkspace;
+        sendChangeMessage();
+    }
+
     /** The group editor's session: what is being edited and where it came from.
 
         Session state, like the rest of AppState. It is not undoable and not saved:

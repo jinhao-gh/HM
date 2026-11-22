@@ -1,0 +1,171 @@
+#include "TestSupport.h"
+
+#include "../Audio/StudioRenderPlan.h"
+#include "../Core/StudioScene.h"
+
+class StudioTests : public juce::UnitTest
+{
+public:
+    StudioTests() : juce::UnitTest ("Studio", "hmdaw") {}
+
+    static Project makeStudioProject()
+    {
+        auto project = makeDefaultProject();
+        addTrack (project, TrackKind::synth);
+        project.tempoMarkers = { TempoMarker { 0, 4, 4, 120.0 } };
+
+        Note note;
+        note.id = 1;
+        note.startTick = kTicksPerQuarter;
+        note.durationTicks = kTicksPerQuarter;
+        note.frequencyHz = 440.0;
+        project.tracks.front().clips.front().notes = { note };
+        return project;
+    }
+
+    void runTest() override
+    {
+        beginTest ("default studio: crossed mics, L/R inputs and channels");
+        {
+            const auto scene = studio::makeDefaultScene();
+            expectEquals ((int) scene.microphones.size(), 2);
+            expectEquals ((int) scene.mixerInputs.size(), 2);
+            expectEquals ((int) scene.mixer.channels.size(), 2);
+            expectEquals (scene.microphones[0].position.x, 0.0);
+            expectEquals (scene.microphones[0].position.y, 0.0);
+            expectEquals ((int) scene.microphones[0].pattern, (int) studio::MicPattern::cardioid);
+            expectEquals (scene.mixer.channels[0].inputId, scene.mixerInputs[0].id);
+            expectEquals (scene.mixer.channels[1].inputId, scene.mixerInputs[1].id);
+        }
+
+        beginTest ("adding a track creates an external source in front of the mics");
+        {
+            auto project = makeDefaultProject();
+            const auto trackId = addTrack (project, TrackKind::synth);
+            const auto* source = studio::findSourceForTrack (project.studio, trackId);
+            expect (source != nullptr);
+            expectEquals ((int) source->mode, (int) studio::SourceMode::external);
+            expectLessThan (source->position.y, 0.0);
+        }
+
+        beginTest ("studio scene survives a project round trip");
+        {
+            auto project = makeStudioProject();
+            project.studio.walls.push_back ({ 0, { -1.0, 0.0 }, { 1.0, 0.0 }, 0.6, 0.4 });
+
+            Project loaded;
+            juce::String error;
+            expect (projectFromJson (projectToJson (project), loaded, error), error);
+            expectEquals ((int) loaded.studio.microphones.size(), 2);
+            expectEquals ((int) loaded.studio.sources.size(), 1);
+            expectEquals ((int) loaded.studio.walls.size(), 1);
+            expectWithinAbsoluteError (loaded.studio.walls.front().reflection, 0.6, 1.0e-6);
+        }
+
+        beginTest ("old projects keep a direct mixer path");
+        {
+            auto project = makeStudioProject();
+            const auto parsed = juce::JSON::parse (projectToJson (project));
+            auto* root = parsed.getDynamicObject();
+            root->removeProperty ("studio");
+            root->setProperty ("version", 1);
+
+            Project loaded;
+            juce::String error;
+            expect (projectFromJson (juce::JSON::toString (parsed), loaded, error), error);
+            expectEquals ((int) loaded.studio.sources.size(), 1);
+            expectEquals ((int) loaded.studio.sources.front().mode,
+                          (int) studio::SourceMode::mixer);
+            expectGreaterThan ((int) loaded.studio.mixer.channels.size(), 2);
+        }
+
+        beginTest ("the render plan maps source, microphones and mixer channels");
+        {
+            auto project = makeStudioProject();
+            auto plan = studio::buildRenderPlan (project, 48000.0);
+            expect (plan != nullptr);
+            expectEquals ((int) plan->mics.size(), 2);
+            expectEquals ((int) plan->channels.size(), 2);
+            expectEquals ((int) plan->sources.size(), 1);
+            expectEquals ((int) plan->sources.front().mode, (int) studio::SourceMode::external);
+            expectGreaterThan ((int) plan->paths.size(), 0);
+        }
+
+        beginTest ("an external source reaches the master through the default mics");
+        {
+            auto project = makeStudioProject();
+            PlaybackEngine engine;
+            engine.prepare (48000.0, 512);
+            engine.setSchedule (std::make_shared<const RenderSchedule> (buildSchedule (project)));
+            engine.setPositionSeconds (0.0);
+            engine.setPlaying (true);
+
+            float peak = 0.0f;
+
+            for (int i = 0; i < 80; ++i)
+            {
+                engine.renderNextBlock (512);
+                peak = juce::jmax (peak, engine.getOutputBuffer().getMagnitude (0, 0, 512));
+            }
+
+            expectGreaterThan (peak, 0.0001f);
+        }
+
+        beginTest ("cardioid microphones reject a source behind them");
+        {
+            auto project = makeStudioProject();
+            auto* source = studio::findSourceForTrack (project.studio, project.tracks.front().id);
+            expect (source != nullptr);
+            source->position = { 2.0, -2.0 };
+            auto front = studio::buildRenderPlan (project, 48000.0);
+            source->position = { -2.0, 2.0 };
+            auto rear = studio::buildRenderPlan (project, 48000.0);
+
+            float frontGain = 0.0f, rearGain = 0.0f;
+            for (const auto& p : front->paths) frontGain += p.gain;
+            for (const auto& p : rear->paths) rearGain += p.gain;
+            expectGreaterThan (frontGain, rearGain);
+        }
+
+        beginTest ("a source connected to a speaker uses the speaker route");
+        {
+            auto project = makeStudioProject();
+            auto& scene = project.studio;
+            const auto sourceId = studio::findSourceForTrack (scene, project.tracks.front().id)->id;
+            studio::Speaker speaker;
+            speaker.id = studio::allocateId (scene);
+            speaker.name = "测试音箱";
+            speaker.position = { 0.0, -2.0 };
+            speaker.angleDeg = 90.0;
+            scene.speakers.push_back (speaker);
+            studio::findSourceForTrack (scene, project.tracks.front().id)->mode = studio::SourceMode::speaker;
+            studio::Connection c;
+            c.id = studio::allocateId (scene);
+            c.fromNode = sourceId;
+            c.toNode = speaker.id;
+            scene.connections.push_back (c);
+
+            auto plan = studio::buildRenderPlan (project, 48000.0);
+            expectEquals ((int) plan->sources.front().mode, (int) studio::SourceMode::speaker);
+            expect (plan->sources.front().speakerIndex >= 0);
+            expectGreaterThan ((int) plan->paths.size(), 0);
+        }
+
+        beginTest ("a wall between source and microphones lowers the direct path");
+        {
+            auto project = makeStudioProject();
+            auto open = studio::buildRenderPlan (project, 48000.0);
+            project.studio.walls.push_back ({ 0, { -3.0, -1.0 }, { 3.0, -1.0 }, 0.5, 0.9 });
+            auto blocked = studio::buildRenderPlan (project, 48000.0);
+
+            float openGain = 0.0f, blockedGain = 0.0f;
+
+            for (const auto& p : open->paths) openGain += p.gain;
+            for (const auto& p : blocked->paths) blockedGain += p.gain;
+
+            expectGreaterThan (openGain, blockedGain);
+        }
+    }
+};
+
+static StudioTests studioTests;

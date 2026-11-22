@@ -7,6 +7,12 @@
 #include "../Core/WindowPlacement.h"
 #include "../Core/WavetableTables.h"
 #include "../Core/WaveformPresets.h"
+#include "../Core/FmPresets.h"
+#include "../Core/SubtractivePresets.h"
+#include "../Core/WavetablePresets.h"
+#include "../Core/MinimoogPresets.h"
+#include "../Core/HybridPresets.h"
+#include "../Core/GmPrograms.h"
 
 namespace hmdaw
 {
@@ -226,7 +232,11 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
       trackArea (document, appState, audio, pluginHost),
       effectsBar (document, appState, pluginHost),
      transportBar (document, appState, audio),
-      editorPanel (document, appState, audio, presetStore)
+      editorPanel (document, appState, audio, presetStore),
+      studioPage (document, audio, appState),
+      routingPage(),
+      keyboardDock (document, appState),
+      mixerPage (document, audio, appState)
 {
     showDialogs = showDialogsToUse;
     editorPanel.getOptionsPanel().showDialogs = showDialogs;
@@ -273,20 +283,39 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
     addAndMakeVisible (trackArea);
     addAndMakeVisible (transportBar);
     addChildComponent (editorPanel);
+    addChildComponent (studioPage);
+    addChildComponent (routingPage);
+    addChildComponent (keyboardDock);
+    addChildComponent (mixerPage);
 
     toolbar.onNewProject   = [this] { newProject(); };
     toolbar.onOpenProject  = [this] { openProject(); };
     toolbar.onSaveProject  = [this] { saveProject (false); };
     toolbar.onSaveProjectAs = [this] { saveProject (true); };
     toolbar.onExportWav    = [this] { exportWav(); };
-    toolbar.onOpenMixer    = [this] { openMixerWindow(); };
     toolbar.onOpenMidiInput = [this] { openMidiInputWindow(); };
-    toolbar.onOpenVirtualKeyboard = [this] { openVirtualKeyboardWindow(); };
+    toolbar.onWorkspaceChanged = [this] (AppState::Workspace workspace)
+    {
+        setWorkspace (workspace);
+    };
+    toolbar.setWorkspace (appState.workspace);
+
+    keyboardDock.onNoteOn = [this] (int note, float velocity, juce::int64 trigger)
+    {
+        handleLiveNoteOn (note, velocity, trigger);
+    };
+    keyboardDock.onNoteOff = [this] (int note, juce::int64 trigger)
+    {
+        handleLiveNoteOff (note, trigger);
+    };
+    keyboardDock.onOpenMidiInput = [this] { openMidiInputWindow(); };
+    keyboardDock.onOpenArp = [this] { openVirtualKeyboardWindow(); };
 
     trackArea.onEditTimbre = [this] (juce::int64 trackId) { openSynthWindow (trackId); };
     trackArea.onCopyClip  = [this] (juce::int64 clipId) { copyClipToClipboard (clipId); };
     trackArea.onEditEffects = [this] (juce::int64 trackId) { openEffectsWindow (trackId); };
     trackArea.onTrackMenu = [this] (juce::int64 trackId) { showTrackMenu (trackId); };
+    trackArea.onReplaceInstrument = [this] (juce::int64 trackId) { replaceInstrument (trackId); };
 
     effectsBar.onAddEffect  = [this] (juce::int64 trackId) { pickEffectFor (trackId); };
     effectsBar.onEditEffect = [this] (juce::int64 trackId, int slotIndex)
@@ -933,14 +962,40 @@ void MainComponent::resized()
     toolbar.setBounds (area.removeFromTop (kToolbarHeight));
     transportBar.setBounds (area.removeFromBottom (kTransportHeight));
 
-    // The main area is just the arrangement row on top of the editor, so the editor
-    // starts at the very left edge of the window.
-    const auto editorVisible = appState.editorOpen;
+    const auto workspace = appState.workspace;
+    const auto arrangement = workspace == AppState::Workspace::arrange;
 
-    editorPanel.setVisible (editorVisible);
-    resizer->setVisible (editorVisible);
+    trackArea.setVisible (arrangement);
+    keyboardDock.setVisible (arrangement);
+    editorPanel.setVisible (arrangement && appState.editorOpen);
+    resizer->setVisible (arrangement && appState.editorOpen);
+    studioPage.setVisible (workspace == AppState::Workspace::studio);
+    routingPage.setVisible (workspace == AppState::Workspace::routing);
+    mixerPage.setVisible (workspace == AppState::Workspace::mixer);
 
-    if (editorVisible)
+    if (workspace == AppState::Workspace::studio)
+    {
+        studioPage.setBounds (area);
+        return;
+    }
+
+    if (workspace == AppState::Workspace::routing)
+    {
+        routingPage.setBounds (area);
+        return;
+    }
+
+    if (workspace == AppState::Workspace::mixer)
+    {
+        mixerPage.setBounds (area);
+        return;
+    }
+
+    auto rail = area.removeFromRight (ArrangeKeyboardDock::kDesignWidth);
+    keyboardDock.setVisible (true);
+    keyboardDock.setBounds (rail.removeFromBottom (ArrangeKeyboardDock::kDesignHeight));
+
+    if (appState.editorOpen)
     {
         juce::Component* components[] = { &trackArea, resizer.get(), &editorPanel };
         layout.layOutComponents (components, 3, area.getX(), area.getY(),
@@ -948,9 +1003,6 @@ void MainComponent::resized()
     }
     else
     {
-        // Without the editor the arrangement takes the whole area: the column that
-        // used to sit down the right of it (the clip strip and the insert chain) is
-        // gone, so there is nothing to keep clear for.
         trackArea.setBounds (area);
     }
 }
@@ -3089,47 +3141,19 @@ void MainComponent::performTrackMenuCommandForTest (juce::int64 trackId, int ite
     performTrackMenuCommand (trackId, itemId);
 }
 
+void MainComponent::setWorkspace (AppState::Workspace workspace)
+{
+    if (workspace != AppState::Workspace::arrange)
+        keyboardDock.releaseAllNotes();
+
+    appState.setWorkspace (workspace);
+    toolbar.setWorkspace (workspace);
+    resized();
+}
+
 void MainComponent::openMixerWindow()
 {
-    if (mixerWindow == nullptr)
-    {
-        mixerWindow = std::make_unique<MixerWindow> (document, appState, audio, this);
-
-        // The strip's own furniture goes through the same doors the rest of the
-        // editor uses: the instrument window, the insert chain's plugin windows,
-        // and the transport.
-        mixerWindow->onOpenInstrument = [this] (juce::int64 trackId)
-        {
-            openSynthWindow (trackId);
-        };
-
-        mixerWindow->onOpenEffect = [this] (juce::int64 trackId, int slotIndex)
-        {
-            openEffectSlot (trackId, slotIndex);
-        };
-
-        mixerWindow->onAddEffect = [this] (juce::int64 trackId)
-        {
-            pickEffectFor (trackId);
-        };
-
-        mixerWindow->onPlayStop = [this]
-        {
-            audio.togglePlay();
-            transportBar.refresh();
-        };
-
-        mixerWindow->onReturnToStart = [this]
-        {
-            audio.returnToZero();
-            transportBar.refresh();
-        };
-    }
-
-    // The mixer shows the project's own state, so a track added since it was last
-    // open (or a new project) is picked up here.
-    mixerWindow->showForProject();
-    attachKeyListenersToWindows();
+    setWorkspace (AppState::Workspace::mixer);
 }
 
 void MainComponent::showClipRenameDialog (juce::int64 clipId)
@@ -3176,6 +3200,117 @@ void MainComponent::showClipRenameDialog (juce::int64 clipId)
                     target->name = name;
             });
         }), true);
+}
+
+void MainComponent::replaceInstrument (juce::int64 trackId)
+{
+    const auto* track = document.getProject().findTrack (trackId);
+
+    if (track == nullptr)
+        return;
+
+    const auto kind = track->kind;
+
+    document.applyEdit (NI_TXT ("替换同类乐器"), [this, trackId] (Project& project)
+    {
+        auto* target = project.findTrack (trackId);
+
+        if (target == nullptr)
+            return;
+
+        switch (target->kind)
+        {
+            case TrackKind::synth:
+            {
+                int count = 0;
+                const auto* bank = fm::bank (count);
+                int current = 0;
+
+                for (int i = 0; i < count; ++i)
+                    if (target->synth.patch.name == juce::String::fromUTF8 (bank[i].name))
+                        current = i;
+
+                if (count > 0)
+                    fm::applyPreset (target->synth.patch, (current + 1) % count);
+                break;
+            }
+
+            case TrackKind::subtractive:
+            {
+                int count = 0;
+                const auto* bank = subtractive::bank (count);
+                int current = 0;
+
+                for (int i = 0; i < count; ++i)
+                    if (target->subtractive.name == juce::String::fromUTF8 (bank[i].name))
+                        current = i;
+
+                if (count > 0)
+                    subtractive::applyPreset (target->subtractive, (current + 1) % count);
+                break;
+            }
+
+            case TrackKind::wavetable:
+            {
+                int count = 0;
+                const auto* bank = wavetable::bank (count);
+                int current = 0;
+
+                for (int i = 0; i < count; ++i)
+                    if (target->wavetable.name == juce::String::fromUTF8 (bank[i].name))
+                        current = i;
+
+                if (count > 0)
+                    wavetable::applyPreset (target->wavetable, (current + 1) % count);
+                break;
+            }
+
+            case TrackKind::minimoog:
+            {
+                int count = 0;
+                const auto* bank = minimoog::bank (count);
+                int current = 0;
+
+                for (int i = 0; i < count; ++i)
+                    if (target->minimoog.name == juce::String::fromUTF8 (bank[i].name))
+                        current = i;
+
+                if (count > 0)
+                    minimoog::applyPreset (target->minimoog, (current + 1) % count);
+                break;
+            }
+
+            case TrackKind::hybrid:
+            {
+                const auto count = hybridpresets::factoryPresetCount();
+                int current = 0;
+
+                for (int i = 0; i < count; ++i)
+                    if (target->hybrid.name == hybridpresets::bank()[(size_t) i].name)
+                        current = i;
+
+                if (count > 0)
+                    hybridpresets::apply (target->hybrid, (current + 1) % count);
+                break;
+            }
+
+            case TrackKind::gm:
+                target->gm.program = (target->gm.program + 1) % 128;
+                break;
+
+            case TrackKind::drums:
+            case TrackKind::sampler:
+            case TrackKind::granular:
+            case TrackKind::vst:
+            case TrackKind::audio:
+                break;
+        }
+    });
+
+    if (kind == TrackKind::vst || kind == TrackKind::sampler
+        || kind == TrackKind::granular || kind == TrackKind::audio
+        || kind == TrackKind::drums)
+        openSynthWindow (trackId);
 }
 
 void MainComponent::openSynthWindow (juce::int64 trackId)
@@ -3437,7 +3572,7 @@ bool MainComponent::keyPressed (const juce::KeyPress& key)
 
     if (code == juce::KeyPress::F3Key)
     {
-        openMixerWindow();
+        setWorkspace (AppState::Workspace::mixer);
         return true;
     }
 

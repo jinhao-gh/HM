@@ -55,6 +55,7 @@ void PlaybackEngine::prepare (double newSampleRate, int maxBlockSize)
 
     output.setSize (2, maxBlock, false, true, true);
     output.clear();
+    studioRenderer.prepare (sampleRate, maxBlock);
     trackBuffer.setSize (2, maxBlock, false, true, true);
     trackBuffer.clear();
 
@@ -833,6 +834,12 @@ void PlaybackEngine::matchTracks (const std::shared_ptr<const RenderSchedule>& t
         cursors[(size_t) i] = cursor;
     }
 
+    if (target->studioPlan != lastStudioPlan)
+    {
+        studioRenderer.setPlan (target->studioPlan);
+        lastStudioPlan = target->studioPlan;
+    }
+
     lastMatched = target;
 }
 
@@ -1481,13 +1488,19 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
             hybrid->renderAdding (trackBuffer, 0, numSamples, 1.0f, 1.0f);
 
         runEffectChain (info, numSamples);
-        mixTrackIntoOutput (info, offset, numSamples);
+
+        if (target.studioPlan != nullptr)
+            studioRenderer.addSource (info.trackId, trackBuffer, numSamples,
+                                      controllerStates[(size_t) i].expression);
+        else
+            mixTrackIntoOutput (info, offset, numSamples);
     }
 }
 
 void PlaybackEngine::renderAudioTracks (const RenderSchedule& target, double startSeconds,
                                         int offset, int numSamples)
 {
+    juce::ignoreUnused (offset);
     const auto trackCount = juce::jmin ((int) target.tracks.size(), kMaxTracks);
 
     for (int i = 0; i < trackCount; ++i)
@@ -1503,7 +1516,12 @@ void PlaybackEngine::renderAudioTracks (const RenderSchedule& target, double sta
         renderAudioClips (info.audioClips, trackBuffer, 0, numSamples, startSeconds,
                           sampleRate, 1.0f, 1.0f);
         runEffectChain (info, numSamples);
-        mixTrackIntoOutput (info, offset, numSamples);
+
+        if (target.studioPlan != nullptr)
+            studioRenderer.addSource (info.trackId, trackBuffer, numSamples,
+                                      controllerStates[(size_t) i].expression);
+        else
+            mixTrackIntoOutput (info, offset, numSamples);
     }
 }
 
@@ -1596,8 +1614,10 @@ void PlaybackEngine::renderNextBlock (int numSamples)
                 const auto bpm = map != nullptr
                                      ? map->bpmAt (map->tickAtSeconds (position))
                                      : 120.0;
+                studioRenderer.beginChunk (chunk);
                 renderVoices (*target, offset, chunk, bpm);
                 renderAudioTracks (*target, position, offset, chunk);
+                studioRenderer.render (output, offset, chunk);
 
                 if (metronome)
                     renderClicks (offset, chunk);
@@ -1625,17 +1645,15 @@ void PlaybackEngine::renderNextBlock (int numSamples)
             const auto position = getPositionSeconds();
             const auto bpm = map != nullptr ? map->bpmAt (map->tickAtSeconds (position))
                                             : 120.0;
+            studioRenderer.beginChunk (numSamples);
             renderVoices (*target, 0, numSamples, bpm);
+            studioRenderer.render (output, 0, numSamples);
         }
     }
 
     renderPreviewVoices (numSamples);
 
-    // ---- the master fader, and the meter that watches the whole mix ---------
-    if (auto target = getScheduleSnapshot())
-        if (target->masterGain != 1.0f)
-            output.applyGain (0, numSamples, target->masterGain);
-
+    // ---- the master meter watches the whole mix ----------------------------
     const auto mixPeakLeft  = output.getMagnitude (0, 0, numSamples);
     const auto mixPeakRight = output.getNumChannels() > 1
                                   ? output.getMagnitude (1, 0, numSamples) : mixPeakLeft;

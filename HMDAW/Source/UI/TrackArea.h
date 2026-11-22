@@ -105,6 +105,8 @@ public:
     /** A right click on a lane header: that track's own settings (see
         `MainComponent::showTrackMenu`). */
     std::function<void (juce::int64 trackId)> onTrackMenu;
+    /** 替换: replace the instrument while keeping the notes. */
+    std::function<void (juce::int64 trackId)> onReplaceInstrument;
 
     /** Set by MainComponent: puts a clip on the shared clip clipboard (the right
         click menu's 复制, which is the same thing Ctrl+C does). */

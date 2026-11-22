@@ -8529,7 +8529,7 @@ namespace selftest
 
             if (header != nullptr)
             {
-                const char* names[] = { "name", "timbre", "volume", "pan", "delete", "M", "S" };
+                const char* names[] = { "name", "timbre", "volume", "replace", "delete", "M", "S" };
 
                 for (int which = 0; which < 7; ++which)
                 {
@@ -8544,14 +8544,12 @@ namespace selftest
 
                 header->setNameForTest (NI_TXT ("改过的名字"));
                 header->setVolumeForTest (-12.0);
-                header->setPanForTest (-0.5);
                 pump();
 
                 const auto* track = document.findTrack (headerTrackId);
 
                 check (track != nullptr && track->name == NI_TXT ("改过的名字")
-                           && std::abs (track->volumeDb + 12.0f) < 1.0e-3f
-                           && std::abs (track->pan + 0.5f) < 1.0e-3f,
+                           && std::abs (track->volumeDb + 12.0f) < 1.0e-3f,
                        "the header edits the track it belongs to");
 
                 // The timbre button must ask for its own track.

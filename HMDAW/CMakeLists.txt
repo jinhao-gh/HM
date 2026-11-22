@@ -143,6 +143,14 @@ target_sources(HMDAW PRIVATE
     Source/UI/HybridEditor.cpp
     Source/UI/GmEditor.h
     Source/UI/GmEditor.cpp
+    Source/UI/StudioPage.h
+    Source/UI/StudioPage.cpp
+    Source/UI/RoutingPage.h
+    Source/UI/RoutingPage.cpp
+    Source/UI/ArrangeKeyboardDock.h
+    Source/UI/ArrangeKeyboardDock.cpp
+    Source/UI/MixerPage.h
+    Source/UI/MixerPage.cpp
     Source/UI/HybridOscillatorWindow.h
     Source/UI/HybridOscillatorWindow.cpp
     Source/UI/HybridModulationPanel.h
@@ -191,6 +199,7 @@ target_sources(HMDAW PRIVATE
     Source/Tests/InstrumentTests.cpp
     Source/Tests/MinimoogTests.cpp
     Source/Tests/GmTests.cpp
+    Source/Tests/StudioTests.cpp
     Source/Tests/PlaybackTests.cpp
     Source/Tests/PresetTests.cpp
     Source/Tests/PluginTests.cpp

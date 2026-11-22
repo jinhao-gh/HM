@@ -37,18 +37,20 @@ public:
     std::function<void (juce::int64 trackId)> onEditEffects;
     std::function<void (juce::int64 trackId)> onImportAudio;
     std::function<void (juce::int64 trackId)> onDelete;
+    /** 替换: pick another instrument of the same kind, keeping the notes. */
+    std::function<void (juce::int64 trackId)> onReplace;
     /** A right click on the header: the track's own settings (what it can offer
         depends on the kind - a VST track, and only a VST track, can be switched to
         按半音演奏). */
     std::function<void (juce::int64 trackId)> onMenu;
 
     /** Diagnostic hooks for the offscreen self test.
-        which: 0 name, 1 timbre, 2 volume, 3 pan, 4 delete, 5 mute, 6 solo. */
+        which: 0 name, 1 timbre, 2 volume, 3 replace, 4 delete, 5 mute, 6 solo. */
     juce::Rectangle<int> getControlBoundsForTest (int which) const;
     void setNameForTest (const juce::String& name);
     void setVolumeForTest (double db);
-    void setPanForTest (double pan);
     void pressTimbreForTest();
+    void pressReplaceForTest();
     void pressDeleteForTest();
     void pressMuteForTest();
     void pressSoloForTest();
@@ -76,7 +78,6 @@ private:
     /** Leaves the name editor without changing anything (Escape). */
     void cancelNameEdit();
     void applyVolume();
-    void applyPan();
     void toggleMute();
     void toggleSolo();
 
@@ -89,7 +90,7 @@ private:
     juce::TextButton importButton;
     juce::TextButton effectsButton;
     juce::Slider volumeSlider;
-    juce::Slider panSlider;
+    juce::TextButton replaceButton;
     juce::TextButton deleteButton;
     juce::TextButton muteButton, soloButton;
 

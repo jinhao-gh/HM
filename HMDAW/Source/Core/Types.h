@@ -5,6 +5,7 @@
 
 #include "MidiInputMap.h"
 #include "MidiArp.h"
+#include "StudioTypes.h"
 
 #include <array>
 #include <algorithm>
@@ -1556,7 +1557,7 @@ struct MidiInputState
 //==============================================================================
 struct Project
 {
-    int    version    = 1;
+    int    version    = 2;
     double sampleRate = 48000.0;
     int    bufferSize = 512;
 
@@ -1567,6 +1568,7 @@ struct Project
     std::vector<TempoMarker>     tempoMarkers;
     LoopRegion                   loop;
     std::vector<InstrumentTrack> tracks;
+    studio::Scene                studio;
     EditorViewState              view;
     ReferenceGroup               referenceGroup;
     std::vector<ReferenceLineEntry> referenceLines;
@@ -1692,7 +1694,9 @@ inline std::vector<Note> selectedNotesOf (const Project& project,
 inline Project makeDefaultProject()
 {
     Project p;
+    p.version = 2;
     p.tempoMarkers.push_back ({ 0, 4, 4, 120.0 });
+    p.studio = studio::makeDefaultScene();
     return p;
 }
 
@@ -1716,6 +1720,13 @@ inline juce::int64 addTrack (Project& project, TrackKind kind)
         track.clips.push_back (makeDefaultClip (project));
 
     const auto id = track.id;
+
+    if (project.studio.microphones.empty()
+        || project.studio.mixerInputs.empty()
+        || project.studio.mixer.channels.empty())
+        project.studio = studio::makeDefaultScene();
+
+    studio::ensureTrackSource (project.studio, id, (int) project.tracks.size());
     project.tracks.push_back (std::move (track));
     return id;
 }

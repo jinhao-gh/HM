@@ -13,6 +13,10 @@
 #include "MidiInputWindow.h"
 #include "TopToolbar.h"
 #include "TrackArea.h"
+#include "StudioPage.h"
+#include "RoutingPage.h"
+#include "ArrangeKeyboardDock.h"
+#include "MixerPage.h"
 #include "TransportBar.h"
 #include "VirtualKeyboardWindow.h"
 #include "SynthWindow.h"
@@ -79,6 +83,8 @@ public:
     void deleteSelectedNotes();
     void shiftSelectedNotesByOctave (int octaves);
     void openSynthWindow (juce::int64 trackId);
+    /** 替换 in a lane header: cycle the same kind of factory preset, keeping notes. */
+    void replaceInstrument (juce::int64 trackId);
     /** 自定义波表: puts a table of the project's own together out of the loaded
         audio, or out of a built-in table. All three sources end up here. */
     juce::int64 addCustomWavetable (CustomWavetable table);
@@ -89,6 +95,11 @@ public:
     void openEffectsWindow (juce::int64 trackId);
     /** 混音台 (the top bar's button and F3). */
     void openMixerWindow();
+    void setWorkspace (AppState::Workspace workspace);
+    AppState::Workspace getWorkspaceForTest() const noexcept { return appState.workspace; }
+    StudioPage& getStudioPageForTest() noexcept { return studioPage; }
+    RoutingPage& getRoutingPageForTest() noexcept { return routingPage; }
+    MixerPage& getMixerPageForTest() noexcept { return mixerPage; }
     /** Drives the app-wide key handling the way the desktop does (self test).
 
         The focused component goes up the tree, and at each level the app-wide
@@ -349,6 +360,10 @@ private:
     EffectsBar effectsBar;
     TransportBar transportBar;
     EditorPanel editorPanel;
+    StudioPage studioPage;
+    RoutingPage routingPage;
+    ArrangeKeyboardDock keyboardDock;
+    MixerPage mixerPage;
 
     juce::StretchableLayoutManager layout;
     std::unique_ptr<juce::StretchableLayoutResizerBar> resizer;

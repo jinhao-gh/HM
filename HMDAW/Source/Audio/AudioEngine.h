@@ -9,6 +9,7 @@
 #include "GranularSynth.h"
 #include "HybridSynth.h"
 #include "SynthEngine.h"
+#include "StudioRenderer.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
@@ -342,6 +343,9 @@ private:
 
     /** One synth per track, on the heap: 64 tracks of six-operator voices is far
         too much to keep inside a component that may itself live on the stack. */
+    StudioRenderer studioRenderer;
+    std::shared_ptr<const studio::RenderPlan> lastStudioPlan;
+
     std::vector<TrackSynth> synths;
     std::vector<SamplePlayer> samplePlayers;
     std::vector<SubtractiveSynth> subtractiveSynths;

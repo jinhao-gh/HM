@@ -548,6 +548,9 @@ RenderSchedule buildSchedule (const Project& project, const std::set<juce::int64
     }
 
     wavetabletables::pruneTableCache (project);
+    if (onlyTracks.empty())
+        schedule.studioPlan = studio::buildRenderPlan (project, project.sampleRate);
+
     return schedule;
 }
 

@@ -38,6 +38,39 @@ inline Project makeProjectWithSynthTrack()
 {
     auto project = makeDefaultProject();
     addTrack (project, TrackKind::synth);
+
+    // Unit tests predate the studio page: route this test track directly to a
+    // centre-panned mixer channel so level/pan assertions stay about the engine,
+    // not about the default microphone distance. Studio tests opt back into the
+    // acoustic path explicitly.
+    auto& scene = project.studio;
+    auto* source = studio::findSourceForTrack (scene, project.tracks.front().id);
+
+    if (source != nullptr)
+    {
+        source->mode = studio::SourceMode::mixer;
+        source->pan = project.tracks.front().pan;
+
+        studio::MixerInput input;
+        input.id = studio::allocateId (scene);
+        input.name = "测试输入";
+        input.position = { 4.0, 1.5 };
+        scene.mixerInputs.push_back (input);
+
+        studio::MixerChannel channel;
+        channel.id = studio::allocateId (scene);
+        channel.name = "测试通道";
+        channel.inputId = input.id;
+        channel.pan = 0.0;
+        scene.mixer.channels.push_back (channel);
+
+        studio::Connection connection;
+        connection.id = studio::allocateId (scene);
+        connection.fromNode = source->id;
+        connection.toNode = input.id;
+        scene.connections.push_back (connection);
+    }
+
     return project;
 }
 

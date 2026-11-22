@@ -3,6 +3,7 @@
 #include "../Core/MusicMath.h"
 #include "../Core/PluginRendering.h"
 #include "../Core/Types.h"
+#include "StudioRenderPlan.h"
 #include "../Core/Wavetables.h"
 #include "SamplePlayer.h"
 
@@ -88,6 +89,7 @@ struct TrackRenderInfo
 struct RenderSchedule
 {
     std::vector<TrackRenderInfo> tracks;
+    std::shared_ptr<const studio::RenderPlan> studioPlan;
     double lengthSeconds = 0.0;
     /** The project's master fader, as a linear gain. Applied to the whole mix at the
         very end, so what you hear and what an export writes go through the same

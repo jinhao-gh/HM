@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../Core/ProjectDocument.h"
+#include "AppState.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -19,6 +20,7 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
     void refresh();
+    void setWorkspace (AppState::Workspace workspace);
 
     /** Diagnostic hook: the title strip, e.g. "未命名 · HM". */
     juce::String getTitleTextForTest() const { return titleLabel.getText(); }
@@ -28,20 +30,21 @@ public:
     std::function<void()> onSaveProject;
     std::function<void()> onSaveProjectAs;
     std::function<void()> onExportWav;
-    /** 混音台: the mixer window (also on F3). */
-    std::function<void()> onOpenMixer;
-    /** MIDI 输入: the mapping window. */
+    std::function<void (AppState::Workspace)> onWorkspaceChanged;
+
+    /** MIDI 输入窗口仍由 MainComponent 提供（编排右栏的入口会调用它）。 */
     std::function<void()> onOpenMidiInput;
-    /** 虚拟键盘: the on-screen piano (also on Alt+K). */
-    std::function<void()> onOpenVirtualKeyboard;
 
 private:
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
+    void showFileMenu();
+    void selectWorkspace (AppState::Workspace workspace);
 
     ProjectDocument& document;
+    AppState::Workspace currentWorkspace = AppState::Workspace::arrange;
 
-    juce::TextButton newButton, openButton, saveButton, saveAsButton, exportButton;
-    juce::TextButton mixerButton, midiButton, keyboardButton;
+    juce::TextButton fileButton;
+    juce::TextButton studioButton, arrangeButton, routingButton, mixerButton;
     juce::Label titleLabel;
     juce::Label modifiedLabel;
 

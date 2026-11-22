@@ -72,13 +72,14 @@ LaneHeader::LaneHeader (ProjectDocument& documentToUse, AppState& appStateToUse,
     // quietly rewrite a track's level (with an undo step to go with it).
     volumeSlider.setScrollWheelEnabled (false);
 
-    addAndMakeVisible (panSlider);
-    panSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    panSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 48, 18);
-    panSlider.setRange (-1.0, 1.0, 0.01);
-    panSlider.setTooltip (NI_TXT ("声相 (-1 左 .. +1 右)"));
-    panSlider.onValueChange = [this] { applyPan(); };
-    panSlider.setScrollWheelEnabled (false);
+    addAndMakeVisible (replaceButton);
+    replaceButton.setButtonText (NI_TXT ("替换"));
+    replaceButton.setTooltip (NI_TXT ("替换为同类乐器，保留音符和片段"));
+    replaceButton.onClick = [this]
+    {
+        if (onReplace != nullptr)
+            onReplace (trackId);
+    };
 
     addAndMakeVisible (deleteButton);
     deleteButton.setButtonText (NI_TXT ("删除"));
@@ -137,7 +138,6 @@ void LaneHeader::refresh()
         nameEditor.setText (t->name, juce::dontSendNotification);
 
     volumeSlider.setValue ((double) t->volumeDb, juce::dontSendNotification);
-    panSlider.setValue ((double) t->pan, juce::dontSendNotification);
 
     muteButton.setToggleState (t->muted, juce::dontSendNotification);
     soloButton.setToggleState (t->soloed, juce::dontSendNotification);
@@ -213,24 +213,6 @@ void LaneHeader::applyVolume()
     });
 }
 
-void LaneHeader::applyPan()
-{
-    if (updating)
-        return;
-
-    const auto* t = track();
-    const auto value = juce::jlimit (-1.0f, 1.0f, (float) panSlider.getValue());
-
-    if (t == nullptr || std::abs (value - t->pan) < 1.0e-4f)
-        return;
-
-    document.applyEdit (NI_TXT ("调整声相"), [this, value] (Project& project)
-    {
-        if (auto* target = project.findTrack (trackId))
-            target->pan = value;
-    });
-}
-
 void LaneHeader::toggleMute()
 {
     const auto* t = track();
@@ -291,7 +273,7 @@ juce::Rectangle<int> LaneHeader::getControlBoundsForTest (int which) const
         case 0: return nameEditor.getBounds();
         case 1: return timbreButton.getBounds();
         case 2: return volumeSlider.getBounds();
-        case 3: return panSlider.getBounds();
+        case 3: return replaceButton.getBounds();
         case 4: return deleteButton.getBounds();
         case 5: return muteButton.getBounds();
         case 6: return soloButton.getBounds();
@@ -313,16 +295,16 @@ void LaneHeader::setVolumeForTest (double db)
     applyVolume();
 }
 
-void LaneHeader::setPanForTest (double pan)
-{
-    panSlider.setValue (pan, juce::dontSendNotification);
-    applyPan();
-}
-
 void LaneHeader::pressTimbreForTest()
 {
     if (timbreButton.onClick != nullptr)
         timbreButton.onClick();
+}
+
+void LaneHeader::pressReplaceForTest()
+{
+    if (replaceButton.onClick != nullptr)
+        replaceButton.onClick();
 }
 
 void LaneHeader::pressDeleteForTest()
@@ -431,10 +413,10 @@ void LaneHeader::resized()
     area.removeFromTop (kRowGap);
 
     auto sliderRow = area.removeFromTop (kSliderRowHeight);
-    const auto sliderWidth = juce::jmax (60, (sliderRow.getWidth() - kRowGap) / 2);
-    volumeSlider.setBounds (sliderRow.removeFromLeft (sliderWidth));
-    sliderRow.removeFromLeft (kRowGap);
-    panSlider.setBounds (sliderRow);
+    const auto replaceWidth = juce::jmax (50, sliderRow.getWidth() / 4);
+    replaceButton.setBounds (sliderRow.removeFromRight (replaceWidth).reduced (0, 2));
+    sliderRow.removeFromRight (kRowGap);
+    volumeSlider.setBounds (sliderRow);
 
     area.removeFromTop (kRowGap);
 

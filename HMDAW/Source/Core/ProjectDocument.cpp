@@ -2,6 +2,7 @@
 #include "EffectChain.h"
 #include "FmMath.h"
 #include "PresetStore.h"
+#include "StudioScene.h"
 #include "VstSupport.h"
 
 #include <map>
@@ -782,6 +783,7 @@ juce::String projectToJson (const Project& project)
     }
 
     root->setProperty ("tracks", tracks);
+    root->setProperty ("studio", studioSceneToVar (project.studio));
 
     auto* view = new juce::DynamicObject();
     view->setProperty ("pixelsPerQuarter", project.view.pixelsPerQuarter);
@@ -1008,6 +1010,27 @@ bool projectFromJson (const juce::String& json, Project& destination, juce::Stri
                 p.tracks.push_back (std::move (t));
             }
         }
+
+        if (const auto studioVar = o->getProperty ("studio"); studioVar.isObject())
+        {
+            juce::String studioError;
+
+            if (! studioSceneFromVar (studioVar, p.studio, studioError))
+                p.studio = studio::makeDefaultScene();
+
+            ensureStudioForProject (p);
+        }
+        else
+        {
+            p.studio = studio::makeDefaultScene();
+
+            if (p.version < 2)
+                migrateLegacyStudio (p);
+            else
+                ensureStudioForProject (p);
+        }
+
+        p.version = 2;
 
         const auto v = o->getProperty ("view");
 

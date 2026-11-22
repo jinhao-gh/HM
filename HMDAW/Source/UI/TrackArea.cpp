@@ -354,6 +354,7 @@ void TrackArea::deleteTrackNow (juce::int64 trackId)
         all.erase (std::remove_if (all.begin(), all.end(),
                                    [trackId] (const InstrumentTrack& t) { return t.id == trackId; }),
                    all.end());
+        studio::removeTrackSource (project.studio, trackId);
     });
 
     // The plugin itself is kept loaded (see PluginHostManager), but this track no
@@ -608,6 +609,10 @@ void TrackArea::rebuildLaneHeaders (bool force)
                     onTrackMenu (trackId);
             };
             header->onDelete = [this] (juce::int64 trackId) { deleteTrack (trackId); };
+        header->onReplace = [this] (juce::int64 trackId)
+        {
+            if (onReplaceInstrument) onReplaceInstrument (trackId);
+        };
 
             lanesHolder.addAndMakeVisible (header);
         }

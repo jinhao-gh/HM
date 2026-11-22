@@ -465,6 +465,26 @@ public:
         auto project = makeDefaultProject();
         const auto id = addTrack (project, TrackKind::synth);
         auto* track = project.findTrack (id);
+
+        if (auto* source = studio::findSourceForTrack (project.studio, id))
+        {
+            source->mode = studio::SourceMode::mixer;
+            studio::MixerInput input;
+            input.id = studio::allocateId (project.studio);
+            input.name = "FX 测试输入";
+            project.studio.mixerInputs.push_back (input);
+            studio::MixerChannel channel;
+            channel.id = studio::allocateId (project.studio);
+            channel.name = "FX 测试通道";
+            channel.inputId = input.id;
+            project.studio.mixer.channels.push_back (channel);
+            studio::Connection connection;
+            connection.id = studio::allocateId (project.studio);
+            connection.fromNode = source->id;
+            connection.toNode = input.id;
+            project.studio.connections.push_back (connection);
+        }
+
         track->clips.front().notes.clear();
 
         for (int i = 0; i < noteCount; ++i)

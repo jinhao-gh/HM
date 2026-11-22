@@ -11,28 +11,22 @@ TopToolbar::TopToolbar (ProjectDocument& documentToUse)
     {
         addAndMakeVisible (button);
         button.setButtonText (text);
+        button.setClickingTogglesState (false);
+        button.setColour (juce::TextButton::buttonColourId, theme::panelRaised);
+        button.setColour (juce::TextButton::textColourOffId, theme::dimText);
     };
 
-    setup (newButton, NI_TXT ("新建工程"));
-    setup (openButton, NI_TXT ("打开"));
-    setup (saveButton, NI_TXT ("保存"));
-    setup (saveAsButton, NI_TXT ("另存为"));
-    setup (exportButton, NI_TXT ("导出 WAV"));
+    setup (fileButton, NI_TXT ("文件"));
+    setup (studioButton, NI_TXT ("工作室"));
+    setup (arrangeButton, NI_TXT ("编排"));
+    setup (routingButton, NI_TXT ("接线"));
     setup (mixerButton, NI_TXT ("混音台"));
-    mixerButton.setTooltip (NI_TXT ("混音台：每条轨一根条带（快捷键 F3）"));
-    setup (midiButton, NI_TXT ("MIDI输入"));
-    midiButton.setTooltip (NI_TXT ("MIDI 输入：选设备、把琴键绑到参考线组的频率上"));
-    setup (keyboardButton, NI_TXT ("虚拟键盘"));
-    keyboardButton.setTooltip (NI_TXT ("虚拟键盘：点它或用电脑键盘弹奏，走与 MIDI 键盘同一条路（快捷键 Alt+K）"));
 
-    newButton.onClick    = [this] { if (onNewProject) onNewProject(); };
-    openButton.onClick   = [this] { if (onOpenProject) onOpenProject(); };
-    saveButton.onClick   = [this] { if (onSaveProject) onSaveProject(); };
-    saveAsButton.onClick = [this] { if (onSaveProjectAs) onSaveProjectAs(); };
-    exportButton.onClick = [this] { if (onExportWav) onExportWav(); };
-    mixerButton.onClick  = [this] { if (onOpenMixer) onOpenMixer(); };
-    midiButton.onClick   = [this] { if (onOpenMidiInput) onOpenMidiInput(); };
-    keyboardButton.onClick = [this] { if (onOpenVirtualKeyboard) onOpenVirtualKeyboard(); };
+    fileButton.onClick = [this] { showFileMenu(); };
+    studioButton.onClick = [this] { selectWorkspace (AppState::Workspace::studio); };
+    arrangeButton.onClick = [this] { selectWorkspace (AppState::Workspace::arrange); };
+    routingButton.onClick = [this] { selectWorkspace (AppState::Workspace::routing); };
+    mixerButton.onClick = [this] { selectWorkspace (AppState::Workspace::mixer); };
 
     addAndMakeVisible (titleLabel);
     titleLabel.setFont (theme::font (13.5f, true));
@@ -46,6 +40,7 @@ TopToolbar::TopToolbar (ProjectDocument& documentToUse)
 
     document.addChangeListener (this);
     refresh();
+    setWorkspace (currentWorkspace);
 }
 
 TopToolbar::~TopToolbar()
@@ -66,6 +61,69 @@ void TopToolbar::refresh()
                            juce::dontSendNotification);
 }
 
+void TopToolbar::showFileMenu()
+{
+    juce::PopupMenu menu;
+    menu.addItem (1, NI_TXT ("新建工程"));
+    menu.addItem (2, NI_TXT ("打开工程…"));
+    menu.addSeparator();
+    menu.addItem (3, NI_TXT ("保存"));
+    menu.addItem (4, NI_TXT ("另存为…"));
+    menu.addSeparator();
+    menu.addItem (5, NI_TXT ("导出 WAV…"));
+    menu.addSeparator();
+    menu.addItem (6, NI_TXT ("退出"));
+
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&fileButton),
+                        [this] (int result)
+    {
+        switch (result)
+        {
+            case 1: if (onNewProject) onNewProject(); break;
+            case 2: if (onOpenProject) onOpenProject(); break;
+            case 3: if (onSaveProject) onSaveProject(); break;
+            case 4: if (onSaveProjectAs) onSaveProjectAs(); break;
+            case 5: if (onExportWav) onExportWav(); break;
+            case 6: juce::JUCEApplication::getInstance()->systemRequestedQuit(); break;
+            default: break;
+        }
+    });
+}
+
+void TopToolbar::selectWorkspace (AppState::Workspace workspace)
+{
+    if (currentWorkspace == workspace)
+        return;
+
+    currentWorkspace = workspace;
+
+    if (onWorkspaceChanged)
+        onWorkspaceChanged (workspace);
+
+    setWorkspace (workspace);
+}
+
+void TopToolbar::setWorkspace (AppState::Workspace workspace)
+{
+    currentWorkspace = workspace;
+
+    auto setActive = [this, workspace] (juce::TextButton& button,
+                                        AppState::Workspace page)
+    {
+        const auto active = workspace == page;
+        button.setColour (juce::TextButton::buttonColourId,
+                          active ? theme::accentDim : theme::panelRaised);
+        button.setColour (juce::TextButton::textColourOffId,
+                          active ? theme::text : theme::dimText);
+        button.repaint();
+    };
+
+    setActive (studioButton, AppState::Workspace::studio);
+    setActive (arrangeButton, AppState::Workspace::arrange);
+    setActive (routingButton, AppState::Workspace::routing);
+    setActive (mixerButton, AppState::Workspace::mixer);
+}
+
 void TopToolbar::paint (juce::Graphics& g)
 {
     g.setColour (theme::panelBackground);
@@ -78,24 +136,19 @@ void TopToolbar::resized()
 {
     auto area = getLocalBounds().reduced (8, 7);
 
-    newButton.setBounds (area.removeFromLeft (92));
-    area.removeFromLeft (6);
-    openButton.setBounds (area.removeFromLeft (66));
-    area.removeFromLeft (6);
-    saveButton.setBounds (area.removeFromLeft (66));
-    area.removeFromLeft (6);
-    saveAsButton.setBounds (area.removeFromLeft (78));
-    area.removeFromLeft (6);
-    exportButton.setBounds (area.removeFromLeft (96));
-    area.removeFromLeft (6);
-    mixerButton.setBounds (area.removeFromLeft (86));
-    area.removeFromLeft (6);
-    midiButton.setBounds (area.removeFromLeft (96));
-    area.removeFromLeft (6);
-    keyboardButton.setBounds (area.removeFromLeft (96));
+    fileButton.setBounds (area.removeFromLeft (64));
+    area.removeFromLeft (10);
 
-    modifiedLabel.setBounds (area.removeFromRight (76));
+    studioButton.setBounds (area.removeFromLeft (78));
+    area.removeFromLeft (4);
+    arrangeButton.setBounds (area.removeFromLeft (64));
+    area.removeFromLeft (4);
+    routingButton.setBounds (area.removeFromLeft (64));
+    area.removeFromLeft (4);
+    mixerButton.setBounds (area.removeFromLeft (78));
+
     titleLabel.setBounds (area.removeFromRight (300));
+    modifiedLabel.setBounds (area.removeFromRight (76));
 }
 
 } // namespace hmdaw

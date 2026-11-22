@@ -6,6 +6,7 @@
 #include "Theme.h"
 
 #include <cmath>
+#include <initializer_list>
 #include <vector>
 
 namespace hmdaw
@@ -29,7 +30,7 @@ juce::String sourceName (const Project& project, const studio::Source& source)
     if (const auto* track = project.findTrack (source.trackId))
         return track->name;
 
-    return "乐器";
+    return juce::String::fromUTF8 ("乐器");
 }
 
 NodeRef findNode (const studio::Scene& scene, studio::Id id)
@@ -200,6 +201,8 @@ private:
     studio::Id draggedId = 0;
     NodeKind draggedNodeKind = NodeKind::none;
     studio::Id lastAddedWall = 0;
+    bool draggedSinceDown = false;
+    studio::Id pendingInspectId = 0;
     studio::Vec2 dragStartWorld;
     studio::Vec2 dragStartNode;
 
@@ -501,7 +504,8 @@ void StudioCanvas::mouseDown (const juce::MouseEvent& e)
         draggedNodeKind = node.kind;
         dragStartNode = nodePosition (owner.document.getProject().studio, node);
         draggingNode = true;
-        owner.openInspector (node.id);
+        draggedSinceDown = false;
+        pendingInspectId = node.id;
         owner.document.beginEdit (NI_TXT ("移动工作室节点"));
         if (owner.onNodeSelected) owner.onNodeSelected (node.id);
         repaint();
@@ -528,6 +532,9 @@ void StudioCanvas::mouseDrag (const juce::MouseEvent& e)
 
     if (! draggingNode)
         return;
+
+    if (e.getDistanceFromDragStart() > 2)
+        draggedSinceDown = true;
 
     const auto dx = world.x - dragStartWorld.x;
     const auto dy = world.y - dragStartWorld.y;
@@ -601,6 +608,11 @@ void StudioCanvas::mouseUp (const juce::MouseEvent&)
     {
         draggingNode = false;
         owner.document.notifyEdit();
+
+        if (! draggedSinceDown && pendingInspectId != 0)
+            owner.openInspector (pendingInspectId);
+
+        pendingInspectId = 0;
         repaint();
     }
 }
@@ -628,6 +640,7 @@ public:
         setSize (300, 330);
 
         addAndMakeVisible (title);
+        title.setInterceptsMouseClicks (false, false);
         title.setFont (theme::font (13.0f, true));
         title.setColour (juce::Label::textColourId, theme::text);
 
@@ -676,12 +689,10 @@ public:
         }
     }
 
-    void mouseDown (const juce::MouseEvent& e) override
+    void mouseDown (const juce::MouseEvent&) override
     {
         toFront (true);
-
-        if (e.y <= 28)
-            dragging = true;
+        dragging = true;
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
@@ -697,17 +708,17 @@ public:
     {
         const auto& scene = owner.document.getProject().studio;
         const auto node = findNode (scene, nodeId);
-        juce::String titleText = "检查器";
+        juce::String titleText = juce::String::fromUTF8 ("检查器");
 
         switch (node.kind)
         {
-            case NodeKind::source: titleText = "乐器"; break;
-            case NodeKind::speaker: titleText = "音箱"; break;
-            case NodeKind::mic: titleText = "麦克风"; break;
-            case NodeKind::input: titleText = "混音台接口"; break;
-            case NodeKind::splitter: titleText = "一分多"; break;
-            case NodeKind::combiner: titleText = "多合一"; break;
-            case NodeKind::wall: titleText = "墙壁"; break;
+            case NodeKind::source: titleText = juce::String::fromUTF8 ("乐器"); break;
+            case NodeKind::speaker: titleText = juce::String::fromUTF8 ("音箱"); break;
+            case NodeKind::mic: titleText = juce::String::fromUTF8 ("麦克风"); break;
+            case NodeKind::input: titleText = juce::String::fromUTF8 ("混音台接口"); break;
+            case NodeKind::splitter: titleText = juce::String::fromUTF8 ("一分多"); break;
+            case NodeKind::combiner: titleText = juce::String::fromUTF8 ("多合一"); break;
+            case NodeKind::wall: titleText = juce::String::fromUTF8 ("墙壁"); break;
             default: break;
         }
 
@@ -740,10 +751,10 @@ public:
 
 private:
     void build();
-    void addSlider (const juce::String& field, const juce::String& label,
+    void addSlider (const juce::String& field, const char* label,
                     double min, double max, double step);
-    void addCombo (const juce::String& field, const juce::String& label,
-                   const juce::StringArray& items);
+    void addCombo (const juce::String& field, const char* label,
+                   std::initializer_list<const char*> items);
     void syncSlider (juce::Slider& slider);
     void syncCombo (juce::ComboBox& combo);
     void applySlider (juce::Slider& slider);
@@ -850,7 +861,7 @@ void StudioInspector::build()
     }
 }
 
-void StudioInspector::addSlider (const juce::String& field, const juce::String& label,
+void StudioInspector::addSlider (const juce::String& field, const char* label,
                                  double min, double max, double step)
 {
     auto* slider = sliders.add (new juce::Slider());
@@ -864,25 +875,27 @@ void StudioInspector::addSlider (const juce::String& field, const juce::String& 
     controls.push_back (slider);
 
     auto* rowLabel = labels.add (new juce::Label());
-    rowLabel->setText (label, juce::dontSendNotification);
+    rowLabel->setText (juce::String::fromUTF8 (label), juce::dontSendNotification);
     rowLabel->setColour (juce::Label::textColourId, theme::dimText);
     rowLabel->setFont (theme::font (11.0f));
     addAndMakeVisible (rowLabel);
 }
 
-void StudioInspector::addCombo (const juce::String& field, const juce::String& label,
-                                const juce::StringArray& items)
+void StudioInspector::addCombo (const juce::String& field, const char* label,
+                                std::initializer_list<const char*> items)
 {
     auto* combo = combos.add (new juce::ComboBox());
     combo->getProperties().set ("field", field);
     combo->getProperties().set ("label", label);
-    combo->addItemList (items, 1);
+    int itemId = 1;
+    for (const auto* item : items)
+        combo->addItem (juce::String::fromUTF8 (item), itemId++);
     combo->onChange = [this, combo] { applyCombo (*combo); };
     addAndMakeVisible (combo);
     controls.push_back (combo);
 
     auto* rowLabel = labels.add (new juce::Label());
-    rowLabel->setText (label, juce::dontSendNotification);
+    rowLabel->setText (juce::String::fromUTF8 (label), juce::dontSendNotification);
     rowLabel->setColour (juce::Label::textColourId, theme::dimText);
     rowLabel->setFont (theme::font (11.0f));
     addAndMakeVisible (rowLabel);
@@ -967,7 +980,7 @@ void StudioInspector::syncCombo (juce::ComboBox& combo)
 
         const auto current = targetForSource();
         combo.clear (juce::dontSendNotification);
-        combo.addItem ("无", 1);
+        combo.addItem (juce::String::fromUTF8 ("无"), 1);
         int index = 2;
         int selected = 1;
 
@@ -998,7 +1011,7 @@ void StudioInspector::syncCombo (juce::ComboBox& combo)
     {
         const auto current = inputForMic();
         combo.clear (juce::dontSendNotification);
-        combo.addItem ("无", 1);
+        combo.addItem (juce::String::fromUTF8 ("无"), 1);
         int index = 2;
         int selected = 1;
 
@@ -1314,7 +1327,7 @@ void StudioPage::addSpeaker (int units)
     {
         studio::Speaker s;
         s.id = studio::allocateId (scene);
-        s.name = "音箱 " + juce::String ((int) scene.speakers.size() + 1);
+        s.name = juce::String::fromUTF8 ("音箱 ") + juce::String ((int) scene.speakers.size() + 1);
         s.units = juce::jlimit (1, 2, units);
         s.position = { 2.0, -2.0 };
         s.angleDeg = 180.0;
@@ -1329,7 +1342,7 @@ void StudioPage::addMicrophone()
     {
         studio::Microphone m;
         m.id = studio::allocateId (scene);
-        m.name = "麦克风 " + juce::String ((int) scene.microphones.size() + 1);
+        m.name = juce::String::fromUTF8 ("麦克风 ") + juce::String ((int) scene.microphones.size() + 1);
         m.position = { -2.0, 0.0 };
         m.angleDeg = 0.0;
         m.pattern = studio::MicPattern::cardioid;
@@ -1344,7 +1357,7 @@ void StudioPage::addSplitter()
     {
         studio::Splitter s;
         s.id = studio::allocateId (scene);
-        s.name = "一分多";
+        s.name = juce::String::fromUTF8 ("一分多");
         s.outputs = 2;
         scene.splitters.push_back (s);
         return s.id;
@@ -1357,7 +1370,7 @@ void StudioPage::addCombiner()
     {
         studio::Combiner c;
         c.id = studio::allocateId (scene);
-        c.name = "多合一";
+        c.name = juce::String::fromUTF8 ("多合一");
         c.inputs = 2;
         scene.combiners.push_back (c);
         return c.id;
@@ -1370,7 +1383,7 @@ void StudioPage::addMixerInput()
     {
         studio::MixerInput i;
         i.id = studio::allocateId (scene);
-        i.name = "接口 " + juce::String ((int) scene.mixerInputs.size() + 1);
+        i.name = juce::String::fromUTF8 ("接口 ") + juce::String ((int) scene.mixerInputs.size() + 1);
         scene.mixerInputs.push_back (i);
         return i.id;
     });

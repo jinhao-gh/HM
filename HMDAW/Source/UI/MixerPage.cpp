@@ -418,7 +418,7 @@ void MixerPage::addChannel()
     {
         studio::MixerChannel channel;
         channel.id = studio::allocateId (project.studio);
-        channel.name = "通道 " + juce::String ((int) project.studio.mixer.channels.size() + 1);
+        channel.name = juce::String::fromUTF8 ("通道 ") + juce::String ((int) project.studio.mixer.channels.size() + 1);
         project.studio.mixer.channels.push_back (channel);
     });
 }

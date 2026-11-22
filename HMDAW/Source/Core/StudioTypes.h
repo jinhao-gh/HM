@@ -230,7 +230,7 @@ inline Scene makeDefaultScene()
 
     Microphone left;
     left.id = leftMicId;
-    left.name = "麦克风 左";
+    left.name = juce::String::fromUTF8 ("麦克风 左");
     left.position = { 0.0, 0.0 };
     left.angleDeg = -45.0;
     left.pattern = MicPattern::cardioid;
@@ -238,7 +238,7 @@ inline Scene makeDefaultScene()
 
     Microphone right;
     right.id = rightMicId;
-    right.name = "麦克风 右";
+    right.name = juce::String::fromUTF8 ("麦克风 右");
     right.position = { 0.0, 0.0 };
     right.angleDeg = 45.0;
     right.pattern = MicPattern::cardioid;
@@ -246,24 +246,24 @@ inline Scene makeDefaultScene()
 
     MixerInput leftIn;
     leftIn.id = leftInputId;
-    leftIn.name = "左";
+    leftIn.name = juce::String::fromUTF8 ("左");
     scene.mixerInputs.push_back (leftIn);
 
     MixerInput rightIn;
     rightIn.id = rightInputId;
-    rightIn.name = "右";
+    rightIn.name = juce::String::fromUTF8 ("右");
     scene.mixerInputs.push_back (rightIn);
 
     MixerChannel leftChannel;
     leftChannel.id = allocateId (scene);
-    leftChannel.name = "左";
+    leftChannel.name = juce::String::fromUTF8 ("左");
     leftChannel.inputId = leftInputId;
     leftChannel.pan = -1.0;
     scene.mixer.channels.push_back (leftChannel);
 
     MixerChannel rightChannel;
     rightChannel.id = allocateId (scene);
-    rightChannel.name = "右";
+    rightChannel.name = juce::String::fromUTF8 ("右");
     rightChannel.inputId = rightInputId;
     rightChannel.pan = 1.0;
     scene.mixer.channels.push_back (rightChannel);

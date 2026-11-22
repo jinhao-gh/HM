@@ -133,7 +133,7 @@ studio::MixerChannel mixerChannelFromVar (const juce::var& v)
 {
     studio::MixerChannel c;
     c.id = readInt64 (v, "id", 0);
-    c.name = readString (v, "name", "通道");
+    c.name = readString (v, "name", juce::String::fromUTF8 ("通道"));
     c.inputId = readInt64 (v, "inputId", 0);
     c.trimDb = juce::jlimit (-24.0, 24.0, readDouble (v, "trimDb", 0.0));
     c.hpfHz = juce::jlimit (20.0, 500.0, readDouble (v, "hpfHz", 20.0));
@@ -282,7 +282,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
 {
     if (value.getDynamicObject() == nullptr)
     {
-        error = "工作室数据无法识别";
+        error = juce::String::fromUTF8 ("工作室数据无法识别");
         return false;
     }
 
@@ -318,7 +318,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
         {
             studio::Speaker s;
             s.id = readInt64 (v, "id", 0);
-            s.name = readString (v, "name", "音箱");
+            s.name = readString (v, "name", juce::String::fromUTF8 ("音箱"));
             s.position = vecFromVar (v.getDynamicObject() != nullptr
                                          ? v.getDynamicObject()->getProperty ("position") : juce::var());
             s.angleDeg = readDouble (v, "angleDeg", 0.0);
@@ -340,7 +340,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
         {
             studio::Microphone m;
             m.id = readInt64 (v, "id", 0);
-            m.name = readString (v, "name", "麦克风");
+            m.name = readString (v, "name", juce::String::fromUTF8 ("麦克风"));
             m.position = vecFromVar (v.getDynamicObject() != nullptr
                                          ? v.getDynamicObject()->getProperty ("position") : juce::var());
             m.angleDeg = readDouble (v, "angleDeg", 0.0);
@@ -354,7 +354,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
         {
             studio::MixerInput i;
             i.id = readInt64 (v, "id", 0);
-            i.name = readString (v, "name", "输入");
+            i.name = readString (v, "name", juce::String::fromUTF8 ("输入"));
             i.position = vecFromVar (v.getDynamicObject() != nullptr
                                          ? v.getDynamicObject()->getProperty ("position") : juce::var());
             scene.mixerInputs.push_back (i);
@@ -365,7 +365,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
         {
             studio::Splitter s;
             s.id = readInt64 (v, "id", 0);
-            s.name = readString (v, "name", "一分多");
+            s.name = readString (v, "name", juce::String::fromUTF8 ("一分多"));
             s.outputs = juce::jlimit (2, 16, readInt (v, "outputs", 2));
             s.position = vecFromVar (v.getDynamicObject() != nullptr
                                          ? v.getDynamicObject()->getProperty ("position") : juce::var());
@@ -377,7 +377,7 @@ bool studioSceneFromVar (const juce::var& value, studio::Scene& scene, juce::Str
         {
             studio::Combiner c;
             c.id = readInt64 (v, "id", 0);
-            c.name = readString (v, "name", "多合一");
+            c.name = readString (v, "name", juce::String::fromUTF8 ("多合一"));
             c.inputs = juce::jlimit (2, 16, readInt (v, "inputs", 2));
             c.position = vecFromVar (v.getDynamicObject() != nullptr
                                          ? v.getDynamicObject()->getProperty ("position") : juce::var());
@@ -454,7 +454,7 @@ void migrateLegacyStudio (Project& project)
         studio::MixerInput input;
         input.id = studio::allocateId (project.studio);
         input.name = track.name.isNotEmpty() ? track.name
-                                             : "轨道 " + juce::String ((int) project.studio.mixerInputs.size() + 1);
+                                             : juce::String::fromUTF8 ("轨道 ") + juce::String ((int) project.studio.mixerInputs.size() + 1);
         project.studio.mixerInputs.push_back (input);
 
         studio::MixerChannel channel;

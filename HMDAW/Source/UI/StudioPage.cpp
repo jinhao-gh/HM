@@ -540,28 +540,29 @@ void StudioCanvas::mouseDrag (const juce::MouseEvent& e)
     const auto dy = world.y - dragStartWorld.y;
     const auto node = findNode (owner.document.getProject().studio, draggedId);
 
-    owner.document.applyEdit (NI_TXT ("移动工作室节点"), [node, dx, dy, this] (Project& project)
+    owner.document.applyEdit (NI_TXT ("移动工作室节点"), [dx, dy, this] (Project& project)
     {
         auto& scene = project.studio;
+        const studio::Vec2 p { dragStartNode.x + dx, dragStartNode.y + dy };
 
-        if (node.kind == NodeKind::source)
-            for (auto& src : scene.sources)
-                if (src.id == draggedId) { src.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
-        else if (node.kind == NodeKind::speaker)
-            for (auto& spk : scene.speakers)
-                if (spk.id == draggedId) { spk.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
-        else if (node.kind == NodeKind::mic)
-            for (auto& mic : scene.microphones)
-                if (mic.id == draggedId) { mic.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
-        else if (node.kind == NodeKind::input)
-            for (auto& in : scene.mixerInputs)
-                if (in.id == draggedId) { in.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
-        else if (node.kind == NodeKind::splitter)
-            for (auto& spl : scene.splitters)
-                if (spl.id == draggedId) { spl.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
-        else if (node.kind == NodeKind::combiner)
-            for (auto& cmb : scene.combiners)
-                if (cmb.id == draggedId) { cmb.position = { dragStartNode.x + dx, dragStartNode.y + dy }; break; }
+        auto move = [this, p] (auto& nodes)
+        {
+            for (auto& n : nodes)
+                if (n.id == draggedId)
+                {
+                    n.position = p;
+                    return true;
+                }
+
+            return false;
+        };
+
+        if (move (scene.sources)) return;
+        if (move (scene.speakers)) return;
+        if (move (scene.microphones)) return;
+        if (move (scene.mixerInputs)) return;
+        if (move (scene.splitters)) return;
+        move (scene.combiners);
     });
 
     repaint();
@@ -723,8 +724,32 @@ public:
             default: break;
         }
 
+        juce::String nodeName;
+
+        if (node.kind == NodeKind::source)
+        {
+            for (const auto& s : scene.sources)
+                if (s.id == nodeId)
+                {
+                    if (const auto* track = owner.document.getProject().findTrack (s.trackId))
+                        nodeName = track->name;
+                    break;
+                }
+        }
+        else if (node.kind == NodeKind::speaker)
+            for (const auto& s : scene.speakers) if (s.id == nodeId) { nodeName = s.name; break; }
+        else if (node.kind == NodeKind::mic)
+            for (const auto& m : scene.microphones) if (m.id == nodeId) { nodeName = m.name; break; }
+        else if (node.kind == NodeKind::input)
+            for (const auto& i : scene.mixerInputs) if (i.id == nodeId) { nodeName = i.name; break; }
+        else if (node.kind == NodeKind::splitter)
+            for (const auto& s : scene.splitters) if (s.id == nodeId) { nodeName = s.name; break; }
+        else if (node.kind == NodeKind::combiner)
+            for (const auto& c : scene.combiners) if (c.id == nodeId) { nodeName = c.name; break; }
+
         const juce::ScopedValueSetter<bool> guard (updating, true);
-        title.setText (titleText, juce::dontSendNotification);
+        title.setText (nodeName.isNotEmpty() ? titleText + " · " + nodeName : titleText,
+                       juce::dontSendNotification);
 
         for (auto* slider : sliders)
             if (slider->getProperties().contains ("field"))

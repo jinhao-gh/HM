@@ -232,7 +232,7 @@ inline Scene makeDefaultScene()
     left.id = leftMicId;
     left.name = juce::String::fromUTF8 ("麦克风 左");
     left.position = { 0.0, 0.0 };
-    left.angleDeg = 45.0;
+    left.angleDeg = 135.0;
     left.pattern = MicPattern::cardioid;
     scene.microphones.push_back (left);
 
@@ -240,7 +240,7 @@ inline Scene makeDefaultScene()
     right.id = rightMicId;
     right.name = juce::String::fromUTF8 ("麦克风 右");
     right.position = { 0.0, 0.0 };
-    right.angleDeg = 135.0;
+    right.angleDeg = 45.0;
     right.pattern = MicPattern::cardioid;
     scene.microphones.push_back (right);
 

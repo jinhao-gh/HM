@@ -897,6 +897,11 @@ void StudioInspector::build()
 
         nameEditor = std::make_unique<juce::TextEditor>();
         addAndMakeVisible (*nameEditor);
+
+        if (node.kind == NodeKind::splitter)
+            addSlider ("outputs", "输出数", 1.0, 8.0, 1.0);
+        else if (node.kind == NodeKind::combiner)
+            addSlider ("inputs", "输入数", 1.0, 8.0, 1.0);
         nameEditor->setColour (juce::TextEditor::backgroundColourId, theme::panelRaised);
         nameEditor->setColour (juce::TextEditor::textColourId, theme::text);
         nameEditor->onReturnKey = [this] { applyName(); };
@@ -986,6 +991,8 @@ void StudioInspector::syncSlider (juce::Slider& slider)
             else if (field == "crossover") value = s.crossoverHz;
             else if (field == "maxSpl") value = s.maxSplDb;
             else if (field == "directivity") value = s.directivityDeg;
+            else if (field == "outputs") for (const auto& sp : scene.splitters) if (sp.id == nodeId) value = sp.outputs;
+            else if (field == "inputs") for (const auto& cm : scene.combiners) if (cm.id == nodeId) value = cm.inputs;
         }
     else if (node.kind == NodeKind::mic)
         for (const auto& m : scene.microphones) if (m.id == nodeId)
@@ -1001,6 +1008,12 @@ void StudioInspector::syncSlider (juce::Slider& slider)
             if (field == "reflection") value = w.reflection;
             else if (field == "occlusion") value = w.occlusion;
         }
+    else if (node.kind == NodeKind::splitter)
+        for (const auto& sp : scene.splitters) if (sp.id == nodeId)
+            if (field == "outputs") value = sp.outputs;
+    else if (node.kind == NodeKind::combiner)
+        for (const auto& cm : scene.combiners) if (cm.id == nodeId)
+            if (field == "inputs") value = cm.inputs;
 
     slider.setValue (value, juce::dontSendNotification);
 }
@@ -1137,6 +1150,12 @@ void StudioInspector::applySlider (juce::Slider& slider)
                 if (field == "reflection") w.reflection = value;
                 else if (field == "occlusion") w.occlusion = value;
             }
+        else if (node.kind == NodeKind::splitter)
+            for (auto& sp : scene.splitters) if (sp.id == nodeId)
+                if (field == "outputs") sp.outputs = juce::jlimit (1, 8, (int) value);
+        else if (node.kind == NodeKind::combiner)
+            for (auto& cm : scene.combiners) if (cm.id == nodeId)
+                if (field == "inputs") cm.inputs = juce::jlimit (1, 8, (int) value);
     });
 }
 

@@ -16,7 +16,8 @@ class MixerChannelStrip;
 
 /** The page-style SSL 4000E-inspired mixer. One strip per studio mixer channel. */
 class MixerPage : public juce::Component,
-                  private juce::ChangeListener
+                  private juce::ChangeListener,
+                  private juce::Timer
 {
 public:
     MixerPage (ProjectDocument& document, AudioEngine& audioEngine, AppState& appState);
@@ -25,6 +26,7 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
     void refresh();
+    void timerCallback() override;
 
     void addChannel();
     void removeChannel (studio::Id channelId);

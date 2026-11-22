@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <vector>
+#include <atomic>
+#include <array>
 
 namespace hmdaw
 {
@@ -14,11 +16,18 @@ namespace hmdaw
 class StudioRenderer
 {
 public:
+    static constexpr int kMaxChannels = 32;
     StudioRenderer() = default;
 
     void prepare (double sampleRate, int maxBlockSize);
     void setPlan (std::shared_ptr<const studio::RenderPlan> newPlan);
     void reset();
+    float getChannelPeak (int index) const noexcept
+    {
+        return index >= 0 && index < kMaxChannels
+                   ? channelPeaks[(size_t) index].load (std::memory_order_relaxed) : 0.0f;
+    }
+    float getMasterPeak() const noexcept { return masterPeak.load (std::memory_order_relaxed); }
 
     void beginChunk (int numSamples);
     void addSource (juce::int64 trackId, const juce::AudioBuffer<float>& buffer,
@@ -49,6 +58,8 @@ private:
     double sampleRate = 48000.0;
     int maxBlock = 1024;
     int activePaths = 0;
+    std::array<std::atomic<float>, kMaxChannels> channelPeaks {};
+    std::atomic<float> masterPeak { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StudioRenderer)
 };

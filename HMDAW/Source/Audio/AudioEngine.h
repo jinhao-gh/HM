@@ -187,6 +187,11 @@ public:
     void resetLiveStateForTest();
 
     const juce::AudioBuffer<float>& getOutputBuffer() const noexcept { return output; }
+    float getMixerChannelPeak (int index) const noexcept
+    {
+        return studioRenderer.getChannelPeak (index);
+    }
+    float getStudioMasterPeak() const noexcept { return studioRenderer.getMasterPeak(); }
     juce::AudioBuffer<float>& getOutputBuffer() noexcept { return output; }
 
     double getSampleRate() const noexcept { return sampleRate; }
@@ -658,6 +663,12 @@ public:
     {
         return playback.readTrackMeter (trackId);
     }
+
+    float getMixerChannelPeak (int index) const noexcept
+    {
+        return playback.getMixerChannelPeak (index);
+    }
+    float getStudioMasterPeak() const noexcept { return playback.getStudioMasterPeak(); }
 
     PlaybackEngine::MeterReading readMasterMeter() noexcept
     {

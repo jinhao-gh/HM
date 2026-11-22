@@ -9,7 +9,6 @@ namespace hmdaw
 
 namespace
 {
-constexpr int kMaxChannels = 32;
 constexpr int kMaxPaths = 512;
 
 float panLeft (double pan)
@@ -295,6 +294,7 @@ void StudioRenderer::render (juce::AudioBuffer<float>& output, int offset, int n
         const auto lowCoeff = (float) (1.0 - std::exp (-2.0 * juce::MathConstants<double>::pi
                                                         * 250.0 / sampleRate));
         const auto lowGain = (float) std::pow (10.0, channelPlan.lowDb / 20.0);
+        float channelPeak = 0.0f;
         const auto highGain = (float) std::pow (10.0, channelPlan.highDb / 20.0);
 
         for (int i = 0; i < numSamples; ++i)
@@ -320,12 +320,17 @@ void StudioRenderer::render (juce::AudioBuffer<float>& output, int offset, int n
 
             if (std::abs (outL) < 1.0e-24f) outL = 0.0f;
             if (std::abs (outR) < 1.0e-24f) outR = 0.0f;
+            channelPeak = juce::jmax (channelPeak, std::abs (outL), std::abs (outR));
 
             output.addSample (0, offset + i, outL);
 
             if (output.getNumChannels() > 1)
                 output.addSample (1, offset + i, outR);
         }
+
+        channelPeaks[(size_t) c].store (channelPeak, std::memory_order_relaxed);
+        masterPeak.store (juce::jmax (masterPeak.load (std::memory_order_relaxed), channelPeak),
+                          std::memory_order_relaxed);
     }
 }
 

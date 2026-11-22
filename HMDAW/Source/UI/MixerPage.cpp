@@ -101,6 +101,7 @@ public:
     }
 
     std::function<void (studio::Id)> onRemove;
+    void setPeak (float newPeak) { peak = juce::jmax (0.0f, newPeak); repaint(); }
 
     studio::Id getChannelId() const noexcept { return channelId; }
 
@@ -156,6 +157,16 @@ public:
 
         g.setColour (juce::Colour (0xff9b9ba7));
         g.setFont (theme::font (9.0f));
+        auto meter = getLocalBounds().removeFromRight (8).reduced (2, 40);
+        g.setColour (juce::Colour (0xff16161b));
+        g.fillRect (meter);
+        const auto level = juce::jlimit (0.0f, 1.0f, peak);
+        g.setColour (level > 0.9f ? juce::Colours::red
+                                  : (level > 0.7f ? juce::Colours::orange : juce::Colour (0xff63d471)));
+        g.fillRect (meter.removeFromBottom ((int) (meter.getHeight() * level)));
+        g.setColour (juce::Colour (0xff3a3a45));
+        g.drawRect (getLocalBounds().removeFromRight (8).reduced (2, 40));
+
         g.drawText ("SSL 4000E", getLocalBounds().removeFromBottom (14),
                     juce::Justification::centred);
     }
@@ -271,6 +282,7 @@ private:
 
     ProjectDocument& document;
     studio::Id channelId = 0;
+    float peak = 0.0f;
     bool updating = false;
 
     juce::Label nameLabel;
@@ -288,6 +300,7 @@ MixerPage::MixerPage (ProjectDocument& documentToUse, AudioEngine& audioToUse,
     : document (documentToUse), audio (audioToUse), appState (appStateToUse)
 {
     setOpaque (true);
+    startTimerHz (20);
 
     addAndMakeVisible (titleLabel);
     titleLabel.setText (NI_TXT ("混音台"), juce::dontSendNotification);
@@ -389,6 +402,20 @@ void MixerPage::paint (juce::Graphics& g)
     r.removeFromTop (38);
     g.setColour (theme::outline);
     g.drawHorizontalLine (r.getY(), (float) r.getX(), (float) r.getRight());
+}
+
+void MixerPage::timerCallback()
+{
+    int index = 0;
+
+    for (auto* strip : strips)
+    {
+        if (strip == nullptr)
+            continue;
+
+        strip->setPeak (audio.getMixerChannelPeak (index));
+        ++index;
+    }
 }
 
 void MixerPage::resized()

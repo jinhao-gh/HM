@@ -1013,6 +1013,7 @@ private:
     std::vector<juce::Component*> controls;
     std::vector<juce::String> comboFields;
     bool updating = false;
+    bool applying = false;
     bool dragging = false;
     juce::Point<int> dragStartWindow;
     juce::Slider* activeSlider = nullptr;
@@ -1289,8 +1290,10 @@ void StudioInspector::syncCombo (juce::ComboBox& combo)
 
 void StudioInspector::applySlider (juce::Slider& slider)
 {
-    if (updating)
+    if (applying)
         return;
+
+    const juce::ScopedValueSetter<bool> applyGuard (applying, true);
 
     const auto field = slider.getProperties()["field"].toString();
     const auto value = slider.getValue();
@@ -1371,8 +1374,10 @@ void StudioInspector::applySlider (juce::Slider& slider)
 
 void StudioInspector::applyCombo (juce::ComboBox& combo)
 {
-    if (updating)
+    if (applying)
         return;
+
+    const juce::ScopedValueSetter<bool> applyGuard (applying, true);
 
     const auto field = combo.getProperties()["field"].toString();
     const auto id = combo.getSelectedId();
@@ -1447,8 +1452,10 @@ void StudioInspector::applyCombo (juce::ComboBox& combo)
 
 void StudioInspector::applyName()
 {
-    if (updating || nameEditor == nullptr)
+    if (applying || nameEditor == nullptr)
         return;
+
+    const juce::ScopedValueSetter<bool> applyGuard (applying, true);
 
     const auto text = nameEditor->getText().trim();
 

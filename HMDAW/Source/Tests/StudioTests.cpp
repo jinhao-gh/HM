@@ -60,6 +60,8 @@ public:
             expectEquals ((int) loaded.studio.sources.size(), 1);
             expectEquals ((int) loaded.studio.walls.size(), 1);
             expectWithinAbsoluteError (loaded.studio.walls.front().reflection, 0.6, 1.0e-6);
+            expectEquals (loaded.studio.connections.front().fromPort, 0);
+            expectEquals (loaded.studio.connections.front().toPort, 0);
         }
 
         beginTest ("old projects keep a direct mixer path");

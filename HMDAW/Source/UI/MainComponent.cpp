@@ -3135,26 +3135,6 @@ void MainComponent::setWorkspace (AppState::Workspace workspace)
 
 void MainComponent::openMixerWindow()
 {
-    if (! showDialogs)
-    {
-        // The legacy offscreen self-test still drives the old mixer window. The
-        // production UI uses the mixer page; keeping this path means the old
-        // checks continue to exercise their intended track strips.
-        if (mixerWindow == nullptr)
-        {
-            mixerWindow = std::make_unique<MixerWindow> (document, appState, audio, this);
-            mixerWindow->onOpenInstrument = [this] (juce::int64 trackId) { openSynthWindow (trackId); };
-            mixerWindow->onOpenEffect = [this] (juce::int64 trackId, int slot) { openEffectSlot (trackId, slot); };
-            mixerWindow->onAddEffect = [this] (juce::int64 trackId) { pickEffectFor (trackId); };
-            mixerWindow->onPlayStop = [this] { audio.togglePlay(); transportBar.refresh(); };
-            mixerWindow->onReturnToStart = [this] { audio.returnToZero(); transportBar.refresh(); };
-        }
-
-        mixerWindow->showForProject();
-        attachKeyListenersToWindows();
-        return;
-    }
-
     setWorkspace (AppState::Workspace::mixer);
 }
 

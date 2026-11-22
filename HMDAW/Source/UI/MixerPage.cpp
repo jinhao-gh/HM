@@ -402,10 +402,27 @@ void MixerPage::paint (juce::Graphics& g)
     r.removeFromTop (38);
     g.setColour (theme::outline);
     g.drawHorizontalLine (r.getY(), (float) r.getX(), (float) r.getRight());
+
+    const auto meterX = masterGain.getRight() + 6;
+    const auto meterY = masterGain.getY() + 8;
+    const auto meterH = juce::jmax (1, masterGain.getHeight() - 16);
+    juce::Rectangle<int> meter (meterX, meterY, 10, meterH);
+    g.setColour (juce::Colour (0xff16161b));
+    g.fillRect (meter);
+    const auto db = juce::Decibels::gainToDecibels (masterPeak, -60.0f);
+    const auto amount = juce::jlimit (0.0f, 1.0f, (db + 60.0f) / 60.0f);
+    g.setColour (db > -3.0f ? juce::Colours::red
+                            : (db > -12.0f ? juce::Colours::orange : juce::Colour (0xff63d471)));
+    g.fillRect (meter.removeFromBottom ((int) (meter.getHeight() * amount)));
+    g.setColour (juce::Colour (0xff3a3a45));
+    g.drawRect (meterX, meterY, 10, meterH);
 }
 
 void MixerPage::timerCallback()
 {
+    masterPeak = audio.getStudioMasterPeak();
+    repaint();
+
     int index = 0;
 
     for (auto* strip : strips)

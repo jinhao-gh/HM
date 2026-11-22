@@ -25,6 +25,15 @@ struct NodeRef
     studio::Id id = 0;
 };
 
+struct PortRef
+{
+    studio::Id nodeId = 0;
+    int port = 0;
+    bool isOutput = false;
+
+    bool valid() const noexcept { return nodeId != 0; }
+};
+
 juce::String sourceName (const Project& project, const studio::Source& source)
 {
     if (const auto* track = project.findTrack (source.trackId))
@@ -186,9 +195,15 @@ private:
     NodeRef hitNode (studio::Vec2 p) const;
     NodeRef hitWall (studio::Vec2 p, double toleranceMeters) const;
     juce::Point<float> nodeScreen (const NodeRef& node) const;
-    juce::Point<float> inputPortScreen (studio::Id id) const;
-    juce::Point<float> outputPortScreen (studio::Id id) const;
-    void drawCable (juce::Graphics& g, studio::Id from, studio::Id to) const;
+    int outputPortCount (const NodeRef& node) const;
+    int inputPortCount (const NodeRef& node) const;
+    juce::Point<float> portScreen (const NodeRef& node, int port, bool isOutput) const;
+    PortRef hitPort (juce::Point<float> screen) const;
+    void drawJack (juce::Graphics& g, juce::Point<float> p, juce::Colour colour,
+                   bool connected, bool hovered) const;
+    void drawCable (juce::Graphics& g, const studio::Connection& connection) const;
+    void drawCablePath (juce::Graphics& g, juce::Point<float> a, juce::Point<float> b,
+                        juce::Colour colour, bool pending) const;
 
     StudioPage& owner;
     double pixelsPerMeter = kPixelsPerMeter;
@@ -196,6 +211,10 @@ private:
     bool wallMode = false;
     bool connectMode = false;
     studio::Id connectFrom = 0;
+    bool draggingCable = false;
+    PortRef cableFrom;
+    PortRef cableTarget;
+    juce::Point<float> cableMouse;
 
     bool draggingNode = false;
     studio::Id draggedId = 0;
@@ -234,16 +253,125 @@ juce::Point<float> StudioCanvas::nodeScreen (const NodeRef& node) const
     return worldToScreen (nodePosition (scene, node));
 }
 
-juce::Point<float> StudioCanvas::inputPortScreen (studio::Id id) const
+int StudioCanvas::outputPortCount (const NodeRef& node) const
 {
-    const auto scene = owner.document.getProject().studio;
-    return worldToScreen (nodePosition (scene, findNode (scene, id)));
+    const auto& scene = owner.document.getProject().studio;
+
+    if (node.kind == NodeKind::splitter)
+        for (const auto& s : scene.splitters)
+            if (s.id == node.id) return juce::jlimit (1, 8, s.outputs);
+
+    if (node.kind == NodeKind::source || node.kind == NodeKind::mic
+        || node.kind == NodeKind::combiner)
+        return 1;
+
+    return 0;
 }
 
-juce::Point<float> StudioCanvas::outputPortScreen (studio::Id id) const
+int StudioCanvas::inputPortCount (const NodeRef& node) const
 {
-    const auto scene = owner.document.getProject().studio;
-    return worldToScreen (nodePosition (scene, findNode (scene, id)));
+    const auto& scene = owner.document.getProject().studio;
+
+    if (node.kind == NodeKind::combiner)
+        for (const auto& c : scene.combiners)
+            if (c.id == node.id) return juce::jlimit (1, 8, c.inputs);
+
+    if (node.kind == NodeKind::speaker || node.kind == NodeKind::input
+        || node.kind == NodeKind::splitter)
+        return 1;
+
+    return 0;
+}
+
+juce::Point<float> StudioCanvas::portScreen (const NodeRef& node, int port, bool isOutput) const
+{
+    const auto p = nodeScreen (node);
+    const auto count = isOutput ? outputPortCount (node) : inputPortCount (node);
+    const auto index = juce::jlimit (0, juce::jmax (0, count - 1), port);
+
+    if (node.kind == NodeKind::splitter || node.kind == NodeKind::combiner)
+    {
+        const auto y = p.y + ((float) index - (float) (count - 1) * 0.5f) * 16.0f;
+        return { p.x + (isOutput ? 38.0f : -38.0f), y };
+    }
+
+    return { p.x + (isOutput ? 28.0f : -28.0f), p.y };
+}
+
+PortRef StudioCanvas::hitPort (juce::Point<float> screen) const
+{
+    const auto& scene = owner.document.getProject().studio;
+    PortRef best;
+
+    auto test = [&] (const NodeRef& node, int port, bool output)
+    {
+        const auto p = portScreen (node, port, output);
+        if (p.getDistanceFrom (screen) <= 14.0f)
+            best = { node.id, port, output };
+    };
+
+    for (const auto& s : scene.sources) test ({ NodeKind::source, s.id }, 0, true);
+    for (const auto& m : scene.microphones) test ({ NodeKind::mic, m.id }, 0, true);
+    for (const auto& s : scene.speakers) test ({ NodeKind::speaker, s.id }, 0, false);
+    for (const auto& i : scene.mixerInputs) test ({ NodeKind::input, i.id }, 0, false);
+
+    for (const auto& s : scene.splitters)
+    {
+        test ({ NodeKind::splitter, s.id }, 0, false);
+        for (int p = 0; p < juce::jlimit (1, 8, s.outputs); ++p)
+            test ({ NodeKind::splitter, s.id }, p, true);
+    }
+
+    for (const auto& c : scene.combiners)
+    {
+        test ({ NodeKind::combiner, c.id }, 0, true);
+        for (int p = 0; p < juce::jlimit (1, 8, c.inputs); ++p)
+            test ({ NodeKind::combiner, c.id }, p, false);
+    }
+
+    return best;
+}
+
+void StudioCanvas::drawCablePath (juce::Graphics& g, juce::Point<float> a, juce::Point<float> b,
+                                  juce::Colour colour, bool pending) const
+{
+    const auto sag = juce::jlimit (20.0f, 90.0f, 18.0f + std::abs (b.x - a.x) * 0.28f);
+    juce::Path path;
+    path.startNewSubPath (a);
+    path.cubicTo (a.x, a.y + sag, b.x, b.y + sag, b.x, b.y);
+
+    g.setColour (juce::Colours::black.withAlpha (pending ? 0.45f : 0.7f));
+    g.strokePath (path, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved,
+                                               juce::PathStrokeType::rounded));
+    g.setColour (colour.withAlpha (pending ? 0.65f : 0.95f));
+    g.strokePath (path, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved,
+                                               juce::PathStrokeType::rounded));
+}
+
+void StudioCanvas::drawCable (juce::Graphics& g, const studio::Connection& connection) const
+{
+    const auto& scene = owner.document.getProject().studio;
+    const auto fromNode = findNode (scene, connection.fromNode);
+    const auto toNode = findNode (scene, connection.toNode);
+
+    if (fromNode.kind == NodeKind::none || toNode.kind == NodeKind::none)
+        return;
+
+    const auto colour = juce::Colour::fromHSV ((float) (connection.id % 8) / 8.0f,
+                                               0.55f, 0.9f, 1.0f);
+    drawCablePath (g, portScreen (fromNode, connection.fromPort, true),
+                   portScreen (toNode, connection.toPort, false), colour, false);
+}
+
+void StudioCanvas::drawJack (juce::Graphics& g, juce::Point<float> p, juce::Colour colour,
+                             bool connected, bool hovered) const
+{
+    g.setColour (juce::Colour (0xff111116));
+    g.fillEllipse (p.x - 8.0f, p.y - 8.0f, 16.0f, 16.0f);
+    g.setColour (hovered ? juce::Colours::white : colour.brighter (connected ? 0.35f : 0.05f));
+    g.drawEllipse (p.x - 7.0f, p.y - 7.0f, 14.0f, 14.0f, hovered ? 2.5f : 2.0f);
+    g.setColour (juce::Colour (0xff050508));
+    g.fillEllipse (p.x - 3.0f, p.y - 3.0f, 6.0f, 6.0f);
 }
 
 NodeRef StudioCanvas::hitNode (studio::Vec2 p) const
@@ -283,18 +411,6 @@ NodeRef StudioCanvas::hitWall (studio::Vec2 p, double toleranceMeters) const
             return { NodeKind::wall, w.id };
 
     return {};
-}
-
-void StudioCanvas::drawCable (juce::Graphics& g, studio::Id from, studio::Id to) const
-{
-    const auto a = outputPortScreen (from);
-    const auto b = inputPortScreen (to);
-    juce::Path path;
-    path.startNewSubPath (a);
-    const auto dx = juce::jmax (40.0f, std::abs (b.x - a.x) * 0.4f);
-    path.cubicTo (a.x + dx, a.y, b.x - dx, b.y, b.x, b.y);
-    g.setColour (juce::Colour (0xff8d8d9e));
-    g.strokePath (path, juce::PathStrokeType (1.8f));
 }
 
 void StudioCanvas::paint (juce::Graphics& g)
@@ -339,7 +455,7 @@ void StudioCanvas::paint (juce::Graphics& g)
     }
 
     for (const auto& c : scene.connections)
-        drawCable (g, c.fromNode, c.toNode);
+        drawCable (g, c);
 
     for (const auto& source : scene.sources)
     {
@@ -443,9 +559,54 @@ void StudioCanvas::paint (juce::Graphics& g)
         drawBox (combiner.position, combiner.name + " " + juce::String (combiner.inputs) + ":1",
                  NodeKind::combiner);
 
+    if (draggingCable)
+    {
+        const auto fromNode = findNode (scene, cableFrom.nodeId);
+        const auto from = portScreen (fromNode, cableFrom.port, true);
+        const auto to = cableTarget.valid()
+                            ? portScreen (findNode (scene, cableTarget.nodeId), cableTarget.port, false)
+                            : cableMouse;
+        drawCablePath (g, from, to, cableTarget.valid() ? theme::accent : juce::Colours::red, true);
+    }
+
+    auto isConnected = [&scene] (studio::Id nodeId, int port, bool output)
+    {
+        for (const auto& c : scene.connections)
+            if (output ? (c.fromNode == nodeId && c.fromPort == port)
+                       : (c.toNode == nodeId && c.toPort == port))
+                return true;
+        return false;
+    };
+
+    auto drawPorts = [&] (const NodeRef& node)
+    {
+        for (int p = 0; p < outputPortCount (node); ++p)
+        {
+            const auto point = portScreen (node, p, true);
+            const auto hovered = cableTarget.valid() && cableTarget.nodeId == node.id
+                                     && cableTarget.port == p && ! cableTarget.isOutput;
+            drawJack (g, point, kindColour (node.kind), isConnected (node.id, p, true), hovered);
+        }
+
+        for (int p = 0; p < inputPortCount (node); ++p)
+        {
+            const auto point = portScreen (node, p, false);
+            const auto hovered = cableTarget.valid() && cableTarget.nodeId == node.id
+                                     && cableTarget.port == p && ! cableTarget.isOutput;
+            drawJack (g, point, kindColour (node.kind), isConnected (node.id, p, false), hovered);
+        }
+    };
+
+    for (const auto& s : scene.sources) drawPorts ({ NodeKind::source, s.id });
+    for (const auto& m : scene.microphones) drawPorts ({ NodeKind::mic, m.id });
+    for (const auto& s : scene.speakers) drawPorts ({ NodeKind::speaker, s.id });
+    for (const auto& i : scene.mixerInputs) drawPorts ({ NodeKind::input, i.id });
+    for (const auto& s : scene.splitters) drawPorts ({ NodeKind::splitter, s.id });
+    for (const auto& c : scene.combiners) drawPorts ({ NodeKind::combiner, c.id });
+
     g.setColour (theme::dimText);
     g.setFont (theme::font (10.0f));
-    g.drawText (NI_TXT ("拖动节点移动；点击打开检查器；滚轮缩放"),
+    g.drawText (NI_TXT ("拖动节点移动；从插孔拖出连线；右键插孔断开；滚轮缩放"),
                 8, getHeight() - 20, getWidth() - 16, 16, juce::Justification::centredLeft);
 }
 
@@ -453,27 +614,6 @@ void StudioCanvas::mouseDown (const juce::MouseEvent& e)
 {
     const auto world = screenToWorld (e.position);
     dragStartWorld = world;
-
-    if (connectMode)
-    {
-        const auto node = hitNode (world);
-
-        if (node.kind != NodeKind::none)
-        {
-            if (connectFrom == 0)
-                connectFrom = node.id;
-            else
-            {
-                owner.createConnection (connectFrom, node.id);
-                connectFrom = 0;
-                owner.refresh();
-            }
-
-            repaint();
-        }
-
-        return;
-    }
 
     if (wallMode)
     {
@@ -492,6 +632,31 @@ void StudioCanvas::mouseDown (const juce::MouseEvent& e)
                              < std::abs (w->b.x - world.x) + std::abs (w->b.y - world.y))
                                 ? w->a : w->b;
 
+        repaint();
+        return;
+    }
+
+    if (e.mods.isPopupMenu())
+    {
+        const auto port = hitPort (e.position);
+
+        if (port.valid())
+        {
+            owner.deleteConnectionsAtPort (port.nodeId, port.port, port.isOutput);
+            repaint();
+        }
+
+        return;
+    }
+
+    const auto outputPort = hitPort (e.position);
+
+    if (outputPort.valid() && outputPort.isOutput)
+    {
+        draggingCable = true;
+        cableFrom = outputPort;
+        cableTarget = {};
+        cableMouse = e.position;
         repaint();
         return;
     }
@@ -522,6 +687,15 @@ void StudioCanvas::mouseDown (const juce::MouseEvent& e)
 void StudioCanvas::mouseDrag (const juce::MouseEvent& e)
 {
     const auto world = screenToWorld (e.position);
+
+    if (draggingCable)
+    {
+        cableMouse = e.position;
+        const auto hit = hitPort (e.position);
+        cableTarget = (hit.valid() && ! hit.isOutput) ? hit : PortRef {};
+        repaint();
+        return;
+    }
 
     if (wallMode && drawingWall)
     {
@@ -570,6 +744,21 @@ void StudioCanvas::mouseDrag (const juce::MouseEvent& e)
 
 void StudioCanvas::mouseUp (const juce::MouseEvent&)
 {
+    if (draggingCable)
+    {
+        const auto from = cableFrom;
+        const auto to = cableTarget;
+        draggingCable = false;
+        cableFrom = {};
+        cableTarget = {};
+
+        if (from.valid() && to.valid())
+            owner.createConnection (from.nodeId, from.port, to.nodeId, to.port);
+
+        repaint();
+        return;
+    }
+
     if (wallMode && drawingWall)
     {
         drawingWall = false;
@@ -1471,34 +1660,79 @@ void StudioPage::setConnectMode (bool on)
     refresh();
 }
 
-void StudioPage::createConnection (studio::Id fromNode, studio::Id toNode)
+void StudioPage::createConnection (studio::Id fromNode, int fromPort,
+                                   studio::Id toNode, int toPort)
 {
     if (fromNode == 0 || toNode == 0 || fromNode == toNode)
         return;
 
-    const auto nodeFrom = findNode (document.getProject().studio, fromNode);
-    const auto nodeTo = findNode (document.getProject().studio, toNode);
+    const auto scene = document.getProject().studio;
+    const auto nodeFrom = findNode (scene, fromNode);
+    const auto nodeTo = findNode (scene, toNode);
 
-    const auto outputKind = nodeFrom.kind == NodeKind::source
-                            || nodeFrom.kind == NodeKind::mic
-                            || nodeFrom.kind == NodeKind::splitter
-                            || nodeFrom.kind == NodeKind::combiner;
-    const auto inputKind = nodeTo.kind == NodeKind::speaker
-                           || nodeTo.kind == NodeKind::input
-                           || nodeTo.kind == NodeKind::splitter
-                           || nodeTo.kind == NodeKind::combiner;
+    auto portCount = [&] (const NodeRef& node, bool output)
+    {
+        if (node.kind == NodeKind::source || node.kind == NodeKind::mic)
+            return output ? 1 : 0;
+        if (node.kind == NodeKind::speaker || node.kind == NodeKind::input)
+            return output ? 0 : 1;
+        if (node.kind == NodeKind::splitter)
+        {
+            if (! output) return 1;
+            for (const auto& s : scene.splitters) if (s.id == node.id)
+                return juce::jlimit (1, 8, s.outputs);
+        }
+        if (node.kind == NodeKind::combiner)
+        {
+            if (output) return 1;
+            for (const auto& c : scene.combiners) if (c.id == node.id)
+                return juce::jlimit (1, 8, c.inputs);
+        }
+        return 0;
+    };
 
-    if (! outputKind || ! inputKind)
+    if (fromPort < 0 || fromPort >= portCount (nodeFrom, true)
+        || toPort < 0 || toPort >= portCount (nodeTo, false))
         return;
 
-    for (const auto& c : document.getProject().studio.connections)
-        if (c.fromNode == fromNode && c.toNode == toNode)
+    for (const auto& c : scene.connections)
+        if (c.fromNode == fromNode && c.fromPort == fromPort
+            && c.toNode == toNode && c.toPort == toPort)
             return;
 
-    document.applyEdit (NI_TXT ("连接工作室元素"), [fromNode, toNode, nodeFrom, nodeTo] (Project& project)
+    auto reaches = [&] (studio::Id start, studio::Id target)
+    {
+        std::vector<studio::Id> stack { start };
+        std::vector<studio::Id> visited;
+
+        while (! stack.empty())
+        {
+            const auto current = stack.back();
+            stack.pop_back();
+
+            if (current == target)
+                return true;
+
+            if (std::find (visited.begin(), visited.end(), current) != visited.end())
+                continue;
+
+            visited.push_back (current);
+
+            for (const auto& c : scene.connections)
+                if (c.fromNode == current)
+                    stack.push_back (c.toNode);
+        }
+
+        return false;
+    };
+
+    if (reaches (toNode, fromNode))
+        return;
+
+    document.applyEdit (NI_TXT ("连接工作室元素"),
+                        [fromNode, fromPort, toNode, toPort, nodeFrom, nodeTo] (Project& project)
     {
         if (nodeFrom.kind == NodeKind::source)
-        {
             for (auto& source : project.studio.sources)
                 if (source.id == fromNode)
                 {
@@ -1508,13 +1742,31 @@ void StudioPage::createConnection (studio::Id fromNode, studio::Id toNode)
                         source.mode = studio::SourceMode::mixer;
                     break;
                 }
-        }
 
         studio::Connection c;
         c.id = studio::allocateId (project.studio);
         c.fromNode = fromNode;
+        c.fromPort = fromPort;
         c.toNode = toNode;
+        c.toPort = toPort;
         project.studio.connections.push_back (c);
+    });
+}
+
+void StudioPage::deleteConnectionsAtPort (studio::Id nodeId, int port, bool output)
+{
+    document.applyEdit (NI_TXT ("断开工作室连线"), [nodeId, port, output] (Project& project)
+    {
+        auto& connections = project.studio.connections;
+        connections.erase (std::remove_if (connections.begin(), connections.end(),
+                                           [=] (const studio::Connection& c)
+                                           {
+                                               return output ? (c.fromNode == nodeId
+                                                                && c.fromPort == port)
+                                                             : (c.toNode == nodeId
+                                                                && c.toPort == port);
+                                           }),
+                           connections.end());
     });
 }
 

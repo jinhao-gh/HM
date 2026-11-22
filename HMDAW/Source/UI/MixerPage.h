@@ -53,6 +53,7 @@ private:
     juce::Component stripHolder;
     juce::Slider masterGain;
     juce::Label masterLabel;
+    float masterPeak = 0.0f;
     juce::OwnedArray<MixerChannelStrip> strips;
     std::vector<studio::Id> lastIds;
 

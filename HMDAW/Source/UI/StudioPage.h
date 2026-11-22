@@ -60,7 +60,9 @@ private:
     friend class StudioInspector;
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
-    void createConnection (studio::Id fromNode, studio::Id toNode);
+    void createConnection (studio::Id fromNode, int fromPort,
+                           studio::Id toNode, int toPort);
+    void deleteConnectionsAtPort (studio::Id nodeId, int port, bool output);
     void addNodeAndSelect (const juce::String& editName,
                            const std::function<studio::Id (studio::Scene&)>& create);
 

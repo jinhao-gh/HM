@@ -45,7 +45,7 @@ public:
             const auto* source = studio::findSourceForTrack (project.studio, trackId);
             expect (source != nullptr);
             expectEquals ((int) source->mode, (int) studio::SourceMode::external);
-            expectLessThan (source->position.y, 0.0);
+            expectGreaterThan (source->position.y, 0.0);
         }
 
         beginTest ("studio scene survives a project round trip");
@@ -116,9 +116,9 @@ public:
             auto project = makeStudioProject();
             auto* source = studio::findSourceForTrack (project.studio, project.tracks.front().id);
             expect (source != nullptr);
-            source->position = { 2.0, -2.0 };
+            source->position = { 0.0, 2.0 };
             auto front = studio::buildRenderPlan (project, 48000.0);
-            source->position = { -2.0, 2.0 };
+            source->position = { 0.0, -2.0 };
             auto rear = studio::buildRenderPlan (project, 48000.0);
 
             float frontGain = 0.0f, rearGain = 0.0f;
@@ -151,11 +151,21 @@ public:
             expectGreaterThan ((int) plan->paths.size(), 0);
         }
 
+        beginTest ("an audio track source reaches the default microphones");
+        {
+            auto project = makeDefaultProject();
+            addTrack (project, TrackKind::audio);
+            auto plan = studio::buildRenderPlan (project, 48000.0);
+            float gain = 0.0f;
+            for (const auto& p : plan->paths) gain += p.gain;
+            expectGreaterThan (gain, 0.0f);
+        }
+
         beginTest ("a wall between source and microphones lowers the direct path");
         {
             auto project = makeStudioProject();
             auto open = studio::buildRenderPlan (project, 48000.0);
-            project.studio.walls.push_back ({ 0, { -3.0, -1.0 }, { 3.0, -1.0 }, 0.5, 0.9 });
+            project.studio.walls.push_back ({ 0, { -3.0, 1.0 }, { 3.0, 1.0 }, 0.5, 0.9 });
             auto blocked = studio::buildRenderPlan (project, 48000.0);
 
             float openGain = 0.0f, blockedGain = 0.0f;

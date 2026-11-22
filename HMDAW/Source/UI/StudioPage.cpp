@@ -15,7 +15,7 @@ namespace hmdaw
 namespace
 {
 constexpr double kPixelsPerMeter = 48.0;
-constexpr double kNodeHitRadiusPx = 24.0;
+constexpr double kNodeHitRadiusPx = 40.0;
 
 enum class NodeKind { none, source, speaker, mic, input, splitter, combiner, wall };
 
@@ -693,13 +693,14 @@ public:
     {
         toFront (true);
         dragging = true;
+        dragStartWindow = getPosition();
     }
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
         if (dragging)
-            setTopLeftPosition (getX() + e.getDistanceFromDragStartX(),
-                                getY() + e.getDistanceFromDragStartY());
+            setTopLeftPosition (dragStartWindow.x + e.getDistanceFromDragStartX(),
+                                dragStartWindow.y + e.getDistanceFromDragStartY());
     }
 
     void mouseUp (const juce::MouseEvent&) override { dragging = false; }
@@ -775,6 +776,7 @@ private:
     std::vector<juce::String> comboFields;
     bool updating = false;
     bool dragging = false;
+    juce::Point<int> dragStartWindow;
 };
 
 studio::Id StudioInspector::targetForSource() const
@@ -1161,6 +1163,8 @@ void StudioInspector::applyCombo (juce::ComboBox& combo)
                 replaceConnection (m.id, target);
         }
     });
+
+    owner.refresh();
 }
 
 void StudioInspector::applyName()

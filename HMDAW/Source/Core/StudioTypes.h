@@ -232,7 +232,7 @@ inline Scene makeDefaultScene()
     left.id = leftMicId;
     left.name = juce::String::fromUTF8 ("麦克风 左");
     left.position = { 0.0, 0.0 };
-    left.angleDeg = -45.0;
+    left.angleDeg = 45.0;
     left.pattern = MicPattern::cardioid;
     scene.microphones.push_back (left);
 
@@ -240,7 +240,7 @@ inline Scene makeDefaultScene()
     right.id = rightMicId;
     right.name = juce::String::fromUTF8 ("麦克风 右");
     right.position = { 0.0, 0.0 };
-    right.angleDeg = 45.0;
+    right.angleDeg = 135.0;
     right.pattern = MicPattern::cardioid;
     scene.microphones.push_back (right);
 
@@ -299,7 +299,7 @@ inline Source& ensureTrackSource (Scene& scene, Id trackId, int trackIndex)
     // In front of the microphones; stagger so several new instruments do not
     // land exactly on top of each other.
     source.position.x = (double) (trackIndex % 6) * 1.2 - 3.0;
-    source.position.y = -2.0 - (double) (trackIndex / 6) * 1.2;
+    source.position.y = 2.0 + (double) (trackIndex / 6) * 1.2;
 
     scene.sources.push_back (source);
     return scene.sources.back();

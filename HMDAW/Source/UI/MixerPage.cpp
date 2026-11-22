@@ -112,7 +112,7 @@ public:
             return;
 
         const juce::ScopedValueSetter<bool> guard (updating, true);
-        nameLabel.setText (channel->name, juce::dontSendNotification);
+        nameLabel.setText (NI_TXT ("未选择输入"), juce::dontSendNotification);
 
         inputBox.clear (juce::dontSendNotification);
         inputBox.addItem (NI_TXT ("无输入"), 1);
@@ -123,7 +123,10 @@ public:
             inputBox.addItem (input.name, index);
 
             if (input.id == channel->inputId)
+            {
                 inputBox.setSelectedId (index, juce::dontSendNotification);
+                nameLabel.setText (input.name, juce::dontSendNotification);
+            }
 
             ++index;
         }
@@ -174,7 +177,7 @@ public:
         hpfLabel.setBounds (hpfArea.removeFromTop (12));
         hpf.setBounds (hpfArea.reduced (4));
 
-        knobs = r.removeFromTop (100);
+        knobs = r.removeFromTop (90);
         auto lowArea = knobs.removeFromLeft (knobWidth);
         lowLabel.setBounds (lowArea.removeFromTop (12));
         low.setBounds (lowArea.reduced (4));

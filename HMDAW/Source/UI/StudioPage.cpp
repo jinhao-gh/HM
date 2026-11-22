@@ -852,6 +852,15 @@ public:
 
         const auto node = findNode (owner.document.getProject().studio, nodeId);
 
+        addAndMakeVisible (applyButton);
+        applyButton.onClick = [this]
+        {
+            for (auto* slider : sliders) applySlider (*slider);
+            for (auto* combo : combos) applyCombo (*combo);
+            applyName();
+            owner.refresh();
+        };
+
         if (node.kind != NodeKind::source)
         {
             addAndMakeVisible (deleteButton);
@@ -867,7 +876,7 @@ public:
         }
 
         setSize (300, 52 + juce::jmax (1, (int) controls.size()) * 28
-                        + (deleteButton.isVisible() ? 30 : 0));
+                        + (deleteButton.isVisible() ? 30 : 0) + 30);
         refresh();
     }
 
@@ -899,8 +908,14 @@ public:
             controls[(size_t) i]->setBounds (row);
         }
 
+        applyButton.setBounds (area.removeFromTop (26).reduced (8, 2).removeFromLeft (120));
+
         if (deleteButton.isVisible())
-            deleteButton.setBounds (area.removeFromTop (26).reduced (70, 2));
+        {
+            auto row = area.removeFromTop (26);
+            row.removeFromLeft (130);
+            deleteButton.setBounds (row.reduced (4, 2));
+        }
     }
 
     void mouseDown (const juce::MouseEvent& e) override
@@ -1007,6 +1022,7 @@ private:
     juce::Label title;
     juce::TextButton closeButton { "x" };
     juce::TextButton deleteButton { NI_TXT ("删除") };
+    juce::TextButton applyButton { NI_TXT ("应用") };
     juce::OwnedArray<juce::Slider> sliders;
     juce::OwnedArray<juce::ComboBox> combos;
     juce::OwnedArray<juce::Label> labels;

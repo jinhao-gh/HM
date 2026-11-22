@@ -383,7 +383,8 @@ NodeRef StudioCanvas::hitNode (studio::Vec2 p) const
     auto test = [&] (NodeRef node, studio::Vec2 pos)
     {
         const auto dx = p.x - pos.x, dy = p.y - pos.y;
-        const auto d = std::sqrt (dx * dx + dy * dy);
+        const auto inside = std::abs (dx) <= 0.75 && std::abs (dy) <= 0.55;
+        const auto d = inside ? 0.0 : std::sqrt (dx * dx + dy * dy);
 
         if (d < bestDistance)
         {
@@ -1867,7 +1868,10 @@ void StudioPage::closeInspector (studio::Id nodeId)
 void StudioPage::refreshInspectors()
 {
     for (auto* inspector : inspectors)
+    {
+        inspector->toFront (true);
         inspector->refresh();
+    }
 }
 
 int StudioPage::getSourceNodeCountForTest() const

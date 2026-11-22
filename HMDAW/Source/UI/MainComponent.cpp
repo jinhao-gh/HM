@@ -309,7 +309,8 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
         handleLiveNoteOff (note, trigger);
     };
     keyboardDock.onOpenMidiInput = [this] { openMidiInputWindow(); };
-    keyboardDock.onOpenArp = [this] { openVirtualKeyboardWindow(); };
+    keyboardDock.onOpenVirtualKeyboard = [this] { openVirtualKeyboardWindow(); };
+    keyboardDock.onOpenArp = [this] { openMidiInputWindow(); };
 
     trackArea.onEditTimbre = [this] (juce::int64 trackId) { openSynthWindow (trackId); };
     trackArea.onCopyClip  = [this] (juce::int64 clipId) { copyClipToClipboard (clipId); };

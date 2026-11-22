@@ -13,7 +13,7 @@ ArrangeKeyboardDock::ArrangeKeyboardDock (ProjectDocument& documentToUse, AppSta
     setOpaque (true);
 
     addAndMakeVisible (titleLabel);
-    titleLabel.setText (NI_TXT ("閿洏"), juce::dontSendNotification);
+    titleLabel.setText (NI_TXT ("键盘"), juce::dontSendNotification);
     titleLabel.setFont (theme::font (13.0f, true));
     titleLabel.setColour (juce::Label::textColourId, theme::text);
 
@@ -51,6 +51,12 @@ ArrangeKeyboardDock::ArrangeKeyboardDock (ProjectDocument& documentToUse, AppSta
     addAndMakeVisible (midiButton);
     midiButton.onClick = [this] { if (onOpenMidiInput) onOpenMidiInput(); };
 
+    addAndMakeVisible (virtualKeyboardButton);
+    virtualKeyboardButton.onClick = [this]
+    {
+        if (onOpenVirtualKeyboard) onOpenVirtualKeyboard();
+    };
+
     addAndMakeVisible (arpButton);
     arpButton.onClick = [this] { if (onOpenArp) onOpenArp(); };
 
@@ -77,10 +83,12 @@ void ArrangeKeyboardDock::resized()
     auto r = getLocalBounds().reduced (8);
 
     auto top = r.removeFromTop (24);
-    titleLabel.setBounds (top.removeFromLeft (50));
-    midiButton.setBounds (top.removeFromRight (78));
+    titleLabel.setBounds (top.removeFromLeft (44));
+    arpButton.setBounds (top.removeFromRight (46));
     top.removeFromRight (4);
-    arpButton.setBounds (top.removeFromRight (54));
+    virtualKeyboardButton.setBounds (top.removeFromRight (76));
+    top.removeFromRight (4);
+    midiButton.setBounds (top.removeFromRight (78));
 
     auto bottom = r.removeFromBottom (24);
     octaveDown.setBounds (bottom.removeFromLeft (24));

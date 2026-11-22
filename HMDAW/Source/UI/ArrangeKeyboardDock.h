@@ -31,6 +31,7 @@ public:
     std::function<void (int midiNote, juce::int64 trigger)> onNoteOff;
     std::function<void()> onOpenMidiInput;
     std::function<void()> onOpenArp;
+    std::function<void()> onOpenVirtualKeyboard;
 
     static constexpr int kDesignWidth = 330;
     static constexpr int kDesignHeight = 280;
@@ -54,6 +55,7 @@ private:
     juce::Slider velocity;
     juce::TextButton octaveDown { "-" }, octaveUp { "+" };
     juce::TextButton midiButton { NI_TXT ("MIDI 输入") };
+    juce::TextButton virtualKeyboardButton { NI_TXT ("虚拟键盘") };
     juce::TextButton arpButton { NI_TXT ("琶音") };
     juce::Label titleLabel, octaveLabel;
     int octave = 3;

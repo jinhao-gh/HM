@@ -657,7 +657,25 @@ public:
         };
 
         build();
-        setSize (300, 52 + juce::jmax (1, (int) controls.size()) * 28);
+
+        const auto node = findNode (owner.document.getProject().studio, nodeId);
+
+        if (node.kind != NodeKind::source)
+        {
+            addAndMakeVisible (deleteButton);
+            deleteButton.onClick = [this]
+            {
+                juce::Component::SafePointer<StudioInspector> safe (this);
+                juce::MessageManager::callAsync ([safe]
+                {
+                    if (safe != nullptr)
+                        safe->owner.deleteNode (safe->nodeId);
+                });
+            };
+        }
+
+        setSize (300, 52 + juce::jmax (1, (int) controls.size()) * 28
+                        + (deleteButton.isVisible() ? 30 : 0));
         refresh();
     }
 
@@ -688,6 +706,9 @@ public:
             labels[i]->setBounds (row.removeFromLeft (96));
             controls[(size_t) i]->setBounds (row);
         }
+
+        if (deleteButton.isVisible())
+            deleteButton.setBounds (area.removeFromTop (26).reduced (70, 2));
     }
 
     void mouseDown (const juce::MouseEvent& e) override
@@ -793,6 +814,7 @@ private:
     studio::Id nodeId = 0;
     juce::Label title;
     juce::TextButton closeButton { "x" };
+    juce::TextButton deleteButton { NI_TXT ("删除") };
     juce::OwnedArray<juce::Slider> sliders;
     juce::OwnedArray<juce::ComboBox> combos;
     juce::OwnedArray<juce::Label> labels;
@@ -1486,6 +1508,33 @@ void StudioPage::setWallMode (bool on)
         canvas->setWallMode (on);
 
     refresh();
+}
+
+void StudioPage::deleteNode (studio::Id nodeId)
+{
+    closeInspector (nodeId);
+
+    document.applyEdit (NI_TXT ("删除工作室元素"), [nodeId] (Project& project)
+    {
+        auto& scene = project.studio;
+        auto remove = [nodeId] (auto& nodes)
+        {
+            nodes.erase (std::remove_if (nodes.begin(), nodes.end(),
+                                         [nodeId] (const auto& n) { return n.id == nodeId; }),
+                         nodes.end());
+        };
+
+        remove (scene.speakers);
+        remove (scene.microphones);
+        remove (scene.mixerInputs);
+        remove (scene.splitters);
+        remove (scene.combiners);
+        remove (scene.walls);
+        scene.connections.erase (std::remove_if (scene.connections.begin(), scene.connections.end(),
+                                                 [nodeId] (const studio::Connection& c)
+                                                 { return c.fromNode == nodeId || c.toNode == nodeId; }),
+                                 scene.connections.end());
+    });
 }
 
 void StudioPage::openInspector (studio::Id nodeId)

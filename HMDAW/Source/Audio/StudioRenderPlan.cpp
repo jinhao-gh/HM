@@ -236,10 +236,27 @@ std::shared_ptr<const RenderPlan> buildRenderPlan (const Project& project, doubl
         m.angleDeg = mic.angleDeg;
         m.pattern = mic.pattern;
         m.gainDb = mic.inputGainDb;
+
         const auto inputs = resolvedTargets (mic.id, NodeKind::input);
-        const auto inputId = inputs.empty() ? (Id) 0 : inputs.front();
-        m.channelIndex = channelForInput (inputId);
-        plan->mics.push_back (m);
+        bool added = false;
+
+        for (const auto inputId : inputs)
+        {
+            const auto channel = channelForInput (inputId);
+
+            if (channel >= 0)
+            {
+                m.channelIndex = channel;
+                plan->mics.push_back (m);
+                added = true;
+            }
+        }
+
+        if (! added)
+        {
+            m.channelIndex = -1;
+            plan->mics.push_back (m);
+        }
     }
 
     for (const auto& speaker : scene.speakers)

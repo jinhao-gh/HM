@@ -39,6 +39,7 @@ public:
     bool isConnectMode() const noexcept { return connectMode; }
 
     void openInspector (studio::Id nodeId);
+    void deleteNode (studio::Id nodeId);
     void closeInspector (studio::Id nodeId);
     void refreshInspectors();
 

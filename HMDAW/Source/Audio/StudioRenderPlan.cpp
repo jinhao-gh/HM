@@ -189,8 +189,9 @@ std::shared_ptr<const RenderPlan> buildRenderPlan (const Project& project, doubl
         return NodeKind::other;
     };
 
-    auto resolvedTarget = [&] (Id fromNode, NodeKind wanted)
+    auto resolvedTargets = [&] (Id fromNode, NodeKind wanted)
     {
+        std::vector<Id> result;
         std::vector<Id> stack { fromNode };
         std::vector<Id> visited;
 
@@ -210,14 +211,18 @@ std::shared_ptr<const RenderPlan> buildRenderPlan (const Project& project, doubl
                     const auto kind = kindOf (c.toNode);
 
                     if (kind == wanted)
-                        return c.toNode;
-
-                    if (kind == NodeKind::splitter || kind == NodeKind::combiner)
+                    {
+                        if (std::find (result.begin(), result.end(), c.toNode) == result.end())
+                            result.push_back (c.toNode);
+                    }
+                    else if (kind == NodeKind::splitter || kind == NodeKind::combiner)
+                    {
                         stack.push_back (c.toNode);
+                    }
                 }
         }
 
-        return (Id) 0;
+        return result;
     };
 
     std::vector<Emitter> emitters;
@@ -231,7 +236,8 @@ std::shared_ptr<const RenderPlan> buildRenderPlan (const Project& project, doubl
         m.angleDeg = mic.angleDeg;
         m.pattern = mic.pattern;
         m.gainDb = mic.inputGainDb;
-        const auto inputId = resolvedTarget (mic.id, NodeKind::input);
+        const auto inputs = resolvedTargets (mic.id, NodeKind::input);
+        const auto inputId = inputs.empty() ? (Id) 0 : inputs.front();
         m.channelIndex = channelForInput (inputId);
         plan->mics.push_back (m);
     }
@@ -303,19 +309,31 @@ std::shared_ptr<const RenderPlan> buildRenderPlan (const Project& project, doubl
         {
             if (source->mode == SourceMode::mixer)
             {
-                const auto target = resolvedTarget (source->id, NodeKind::input);
-                route.directChannel = channelForInput (target);
+                for (const auto input : resolvedTargets (source->id, NodeKind::input))
+                {
+                    const auto channel = channelForInput (input);
+
+                    if (channel >= 0)
+                    {
+                        route.directChannels.push_back (channel);
+
+                        if (route.directChannel < 0)
+                            route.directChannel = channel;
+                    }
+                }
             }
             else
             {
-                const auto target = resolvedTarget (source->id, NodeKind::speaker);
+                for (const auto target : resolvedTargets (source->id, NodeKind::speaker))
+                    for (int i = 0; i < (int) scene.speakers.size(); ++i)
+                        if (scene.speakers[(size_t) i].id == target)
+                        {
+                            route.speakerIndices.push_back (i);
 
-                for (int i = 0; i < (int) scene.speakers.size(); ++i)
-                    if (scene.speakers[(size_t) i].id == target)
-                    {
-                        route.speakerIndex = i;
-                        break;
-                    }
+                            if (route.speakerIndex < 0)
+                                route.speakerIndex = i;
+                            break;
+                        }
             }
         }
 

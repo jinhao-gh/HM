@@ -119,17 +119,32 @@ void StudioRenderer::addSource (juce::int64 trackId, const juce::AudioBuffer<flo
     const auto leftGain = gain * panLeft (route->pan);
     const auto rightGain = gain * panRight (route->pan);
 
-    if (route->mode == studio::SourceMode::mixer && route->directChannel >= 0)
+    if (route->mode == studio::SourceMode::mixer)
     {
-        auto& channel = channelInputs[(size_t) juce::jlimit (0, kMaxChannels - 1,
-                                                              route->directChannel)];
-
-        for (int i = 0; i < numSamples; ++i)
+        auto addToChannel = [&] (int channelIndex)
         {
-            const auto l = buffer.getSample (0, i);
-            const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i) : l;
-            channel[(size_t) i * 2] += l * leftGain;
-            channel[(size_t) i * 2 + 1] += r * rightGain;
+            if (channelIndex < 0 || channelIndex >= kMaxChannels)
+                return;
+
+            auto& channel = channelInputs[(size_t) channelIndex];
+
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const auto l = buffer.getSample (0, i);
+                const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i) : l;
+                channel[(size_t) i * 2] += l * leftGain;
+                channel[(size_t) i * 2 + 1] += r * rightGain;
+            }
+        };
+
+        if (! route->directChannels.empty())
+        {
+            for (const auto channel : route->directChannels)
+                addToChannel (channel);
+        }
+        else
+        {
+            addToChannel (route->directChannel);
         }
 
         return;
@@ -152,38 +167,54 @@ void StudioRenderer::addSource (juce::int64 trackId, const juce::AudioBuffer<flo
             return 0.5f * (l + r);
         } });
     }
-    else if (route->mode == studio::SourceMode::speaker && route->speakerIndex >= 0)
+    else if (route->mode == studio::SourceMode::speaker)
     {
-        const auto& speaker = plan->speakers[(size_t) route->speakerIndex];
-        const auto sizeFactor = 0.55 + 0.45 * juce::jlimit (3.0, 18.0, speaker.wooferInches) / 8.0;
-        const auto limiter = std::pow (10.0, juce::jlimit (-18.0, 18.0,
-                                                           speaker.maxSplDb - 100.0) / 40.0);
-        const auto speakerGain = (float) (std::pow (10.0, speaker.inputGainDb / 20.0)
-                                          * juce::jlimit (0.0, 2.0, speaker.volume)
-                                          * sizeFactor * limiter
-                                          * std::pow (10.0, (speaker.lfDb + speaker.hfDb) / 40.0));
-
-        if (speaker.units == 2)
+        auto appendSpeaker = [&] (int speakerIndex)
         {
-            emitters.push_back ({ speaker.emitterIndex[0], [&buffer, leftGain, speakerGain] (int i)
+            if (speakerIndex < 0 || speakerIndex >= (int) plan->speakers.size())
+                return;
+
+            const auto& speaker = plan->speakers[(size_t) speakerIndex];
+            const auto sizeFactor = 0.55 + 0.45 * juce::jlimit (3.0, 18.0, speaker.wooferInches) / 8.0;
+            const auto limiter = std::pow (10.0, juce::jlimit (-18.0, 18.0,
+                                                               speaker.maxSplDb - 100.0) / 40.0);
+            const auto speakerGain = (float) (std::pow (10.0, speaker.inputGainDb / 20.0)
+                                              * juce::jlimit (0.0, 2.0, speaker.volume)
+                                              * sizeFactor * limiter
+                                              * std::pow (10.0, (speaker.lfDb + speaker.hfDb) / 40.0));
+
+            if (speaker.units == 2)
             {
-                return buffer.getSample (0, i) * leftGain * speakerGain;
-            } });
-            emitters.push_back ({ speaker.emitterIndex[1], [&buffer, rightGain, speakerGain] (int i)
+                emitters.push_back ({ speaker.emitterIndex[0], [&buffer, leftGain, speakerGain] (int i)
+                {
+                    return buffer.getSample (0, i) * leftGain * speakerGain;
+                } });
+                emitters.push_back ({ speaker.emitterIndex[1], [&buffer, rightGain, speakerGain] (int i)
+                {
+                    const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i)
+                                                                 : buffer.getSample (0, i);
+                    return r * rightGain * speakerGain;
+                } });
+            }
+            else
             {
-                const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i)
-                                                             : buffer.getSample (0, i);
-                return r * rightGain * speakerGain;
-            } });
+                emitters.push_back ({ speaker.emitterIndex[0], [&buffer, gain, speakerGain] (int i)
+                {
+                    const auto l = buffer.getSample (0, i);
+                    const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i) : l;
+                    return 0.5f * (l + r) * gain * speakerGain;
+                } });
+            }
+        };
+
+        if (! route->speakerIndices.empty())
+        {
+            for (const auto speakerIndex : route->speakerIndices)
+                appendSpeaker (speakerIndex);
         }
         else
         {
-            emitters.push_back ({ speaker.emitterIndex[0], [&buffer, gain, speakerGain] (int i)
-            {
-                const auto l = buffer.getSample (0, i);
-                const auto r = buffer.getNumChannels() > 1 ? buffer.getSample (1, i) : l;
-                return 0.5f * (l + r) * gain * speakerGain;
-            } });
+            appendSpeaker (route->speakerIndex);
         }
     }
 

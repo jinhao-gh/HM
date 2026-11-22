@@ -690,10 +690,10 @@ public:
         }
     }
 
-    void mouseDown (const juce::MouseEvent&) override
+    void mouseDown (const juce::MouseEvent& e) override
     {
         toFront (true);
-        dragging = true;
+        dragging = e.y <= 30;
         dragStartWindow = getPosition();
     }
 
@@ -898,6 +898,7 @@ void StudioInspector::addSlider (const juce::String& field, const char* label,
     slider->getProperties().set ("field", field);
     slider->getProperties().set ("label", label);
     slider->onValueChange = [this, slider] { applySlider (*slider); };
+    slider->setInterceptsMouseClicks (true, true);
     addAndMakeVisible (slider);
     controls.push_back (slider);
 
@@ -918,6 +919,7 @@ void StudioInspector::addCombo (const juce::String& field, const char* label,
     for (const auto* item : items)
         combo->addItem (juce::String::fromUTF8 (item), itemId++);
     combo->onChange = [this, combo] { applyCombo (*combo); };
+    combo->setInterceptsMouseClicks (true, true);
     addAndMakeVisible (combo);
     controls.push_back (combo);
 

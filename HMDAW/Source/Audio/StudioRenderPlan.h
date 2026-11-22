@@ -57,6 +57,8 @@ struct RenderSource
     int directChannel = -1;
     int speakerIndex = -1;
     int emitterIndex = -1;
+    std::vector<int> directChannels;
+    std::vector<int> speakerIndices;
 };
 
 struct RenderPath

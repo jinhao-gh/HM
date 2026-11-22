@@ -161,6 +161,81 @@ public:
             expectGreaterThan (gain, 0.0f);
         }
 
+        beginTest ("a splitter feeds every speaker");
+        {
+            auto project = makeStudioProject();
+            auto& scene = project.studio;
+            auto* source = studio::findSourceForTrack (scene, project.tracks.front().id);
+            source->mode = studio::SourceMode::speaker;
+
+            studio::Splitter splitter;
+            splitter.id = studio::allocateId (scene);
+            splitter.name = "split";
+            scene.splitters.push_back (splitter);
+
+            std::vector<studio::Id> speakerIds;
+
+            for (int i = 0; i < 2; ++i)
+            {
+                studio::Speaker speaker;
+                speaker.id = studio::allocateId (scene);
+                speaker.name = "spk";
+                speaker.position = { (double) i * 2.0 - 1.0, 0.0 };
+                speaker.angleDeg = 90.0;
+                scene.speakers.push_back (speaker);
+                speakerIds.push_back (speaker.id);
+            }
+
+            auto connect = [&] (studio::Id from, studio::Id to)
+            {
+                studio::Connection c;
+                c.id = studio::allocateId (scene);
+                c.fromNode = from;
+                c.toNode = to;
+                scene.connections.push_back (c);
+            };
+
+            connect (source->id, splitter.id);
+            connect (splitter.id, speakerIds[0]);
+            connect (splitter.id, speakerIds[1]);
+
+            auto plan = studio::buildRenderPlan (project, 48000.0);
+            expectEquals ((int) plan->sources.front().speakerIndices.size(), 2);
+        }
+
+        beginTest ("a splitter feeds every mixer input");
+        {
+            auto project = makeStudioProject();
+            auto& scene = project.studio;
+            auto* source = studio::findSourceForTrack (scene, project.tracks.front().id);
+            source->mode = studio::SourceMode::mixer;
+
+            studio::Splitter splitter;
+            splitter.id = studio::allocateId (scene);
+            scene.splitters.push_back (splitter);
+
+            std::vector<studio::Id> inputIds;
+
+            for (const auto& input : scene.mixerInputs)
+                inputIds.push_back (input.id);
+
+            auto connect = [&] (studio::Id from, studio::Id to)
+            {
+                studio::Connection c;
+                c.id = studio::allocateId (scene);
+                c.fromNode = from;
+                c.toNode = to;
+                scene.connections.push_back (c);
+            };
+
+            connect (source->id, splitter.id);
+            for (const auto input : inputIds)
+                connect (splitter.id, input);
+
+            auto plan = studio::buildRenderPlan (project, 48000.0);
+            expectEquals ((int) plan->sources.front().directChannels.size(), 2);
+        }
+
         beginTest ("a wall between source and microphones lowers the direct path");
         {
             auto project = makeStudioProject();

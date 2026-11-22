@@ -235,7 +235,6 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
       editorPanel (document, appState, audio, presetStore),
       studioPage (document, audio, appState),
       routingPage(),
-      keyboardDock (document, appState),
       mixerPage (document, audio, appState)
 {
     showDialogs = showDialogsToUse;
@@ -285,7 +284,6 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
     addChildComponent (editorPanel);
     addChildComponent (studioPage);
     addChildComponent (routingPage);
-    addChildComponent (keyboardDock);
     addChildComponent (mixerPage);
 
     toolbar.onNewProject   = [this] { newProject(); };
@@ -300,17 +298,8 @@ MainComponent::MainComponent (bool showDialogsToUse, bool openAudioDevice)
     };
     toolbar.setWorkspace (appState.workspace);
 
-    keyboardDock.onNoteOn = [this] (int note, float velocity, juce::int64 trigger)
-    {
-        handleLiveNoteOn (note, velocity, trigger);
-    };
-    keyboardDock.onNoteOff = [this] (int note, juce::int64 trigger)
-    {
-        handleLiveNoteOff (note, trigger);
-    };
-    keyboardDock.onOpenMidiInput = [this] { openMidiInputWindow(); };
-    keyboardDock.onOpenVirtualKeyboard = [this] { openVirtualKeyboardWindow(); };
-    keyboardDock.onOpenArp = [this] { openMidiInputWindow(); };
+    transportBar.onOpenMidiInput = [this] { openMidiInputWindow(); };
+    transportBar.onOpenVirtualKeyboard = [this] { openVirtualKeyboardWindow(); };
 
     trackArea.onEditTimbre = [this] (juce::int64 trackId) { openSynthWindow (trackId); };
     trackArea.onCopyClip  = [this] (juce::int64 clipId) { copyClipToClipboard (clipId); };
@@ -967,7 +956,6 @@ void MainComponent::resized()
     const auto arrangement = workspace == AppState::Workspace::arrange;
 
     trackArea.setVisible (arrangement);
-    keyboardDock.setVisible (arrangement);
     editorPanel.setVisible (arrangement && appState.editorOpen);
     resizer->setVisible (arrangement && appState.editorOpen);
     studioPage.setVisible (workspace == AppState::Workspace::studio);
@@ -991,10 +979,6 @@ void MainComponent::resized()
         mixerPage.setBounds (area);
         return;
     }
-
-    auto rail = area.removeFromRight (ArrangeKeyboardDock::kDesignWidth);
-    keyboardDock.setVisible (true);
-    keyboardDock.setBounds (rail.removeFromBottom (ArrangeKeyboardDock::kDesignHeight));
 
     if (appState.editorOpen)
     {
@@ -3144,9 +3128,6 @@ void MainComponent::performTrackMenuCommandForTest (juce::int64 trackId, int ite
 
 void MainComponent::setWorkspace (AppState::Workspace workspace)
 {
-    if (workspace != AppState::Workspace::arrange)
-        keyboardDock.releaseAllNotes();
-
     appState.setWorkspace (workspace);
     toolbar.setWorkspace (workspace);
     resized();

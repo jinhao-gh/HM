@@ -20,6 +20,9 @@ public:
     void resized() override;
 
     void refresh();
+
+    std::function<void()> onOpenMidiInput;
+    std::function<void()> onOpenVirtualKeyboard;
     void showAudioSettings();
 
     /** Diagnostics for the offscreen self test. */
@@ -44,6 +47,7 @@ private:
     AudioEngine& audio;
 
     juce::TextButton returnButton, playButton, stopButton, settingsButton;
+    juce::TextButton midiInputButton, virtualKeyboardButton;
     juce::TextButton loopButton, metronomeButton;
     /** ● 录制: arms MIDI recording (the `*` key does the same). */
     juce::TextButton recordButton;

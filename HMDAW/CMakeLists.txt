@@ -147,8 +147,6 @@ target_sources(HMDAW PRIVATE
     Source/UI/StudioPage.cpp
     Source/UI/RoutingPage.h
     Source/UI/RoutingPage.cpp
-    Source/UI/ArrangeKeyboardDock.h
-    Source/UI/ArrangeKeyboardDock.cpp
     Source/UI/MixerPage.h
     Source/UI/MixerPage.cpp
     Source/UI/HybridOscillatorWindow.h

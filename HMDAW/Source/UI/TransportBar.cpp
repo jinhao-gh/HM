@@ -81,6 +81,17 @@ TransportBar::TransportBar (ProjectDocument& documentToUse, AppState& appStateTo
     settingsButton.setButtonText (NI_TXT ("音频设置"));
     settingsButton.onClick = [this] { showAudioSettings(); };
 
+    addAndMakeVisible (midiInputButton);
+    midiInputButton.setButtonText (NI_TXT ("MIDI 输入"));
+    midiInputButton.onClick = [this] { if (onOpenMidiInput) onOpenMidiInput(); };
+
+    addAndMakeVisible (virtualKeyboardButton);
+    virtualKeyboardButton.setButtonText (NI_TXT ("虚拟键盘"));
+    virtualKeyboardButton.onClick = [this]
+    {
+        if (onOpenVirtualKeyboard) onOpenVirtualKeyboard();
+    };
+
     addAndMakeVisible (deviceLabel);
     deviceLabel.setFont (theme::font (10.5f));
     deviceLabel.setColour (juce::Label::textColourId, theme::dimText);
@@ -266,6 +277,10 @@ void TransportBar::resized()
 
     auto right = area;
     settingsButton.setBounds (right.removeFromRight (92).reduced (0, 10));
+    right.removeFromRight (6);
+    virtualKeyboardButton.setBounds (right.removeFromRight (92).reduced (0, 10));
+    right.removeFromRight (6);
+    midiInputButton.setBounds (right.removeFromRight (88).reduced (0, 10));
     right.removeFromRight (8);
     deviceLabel.setBounds (right);
 }

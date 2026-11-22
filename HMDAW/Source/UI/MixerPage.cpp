@@ -29,6 +29,21 @@ public:
         addAndMakeVisible (inputBox);
         inputBox.onChange = [this] { applyInput(); };
 
+        auto setupLabel = [this] (juce::Label& label, const juce::String& text)
+        {
+            addAndMakeVisible (label);
+            label.setText (text, juce::dontSendNotification);
+            label.setFont (theme::font (9.5f));
+            label.setColour (juce::Label::textColourId, theme::dimText);
+            label.setJustificationType (juce::Justification::centred);
+        };
+
+        setupLabel (trimLabel, NI_TXT ("输入"));
+        setupLabel (hpfLabel, NI_TXT ("HPF"));
+        setupLabel (lowLabel, NI_TXT ("低频"));
+        setupLabel (highLabel, NI_TXT ("高频"));
+        setupLabel (panLabel, NI_TXT ("声像"));
+
         addAndMakeVisible (trim);
         trim.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
         trim.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 40, 16);
@@ -134,16 +149,7 @@ public:
         g.setColour (juce::Colour (0xff4a4a54));
         g.drawRect (getLocalBounds(), 1);
 
-        auto meter = getLocalBounds().reduced (8);
-        meter.removeFromTop (30);
-        meter.removeFromBottom (220);
-        meter = meter.removeFromRight (16).removeFromTop (150);
-        meter.translate (-0, 150);
-
-        g.setColour (juce::Colour (0xff17171b));
-        g.fillRect (meter);
-        g.setColour (juce::Colour (0xff62d779));
-        g.fillRect (meter.reduced (3).removeFromBottom (0));
+        // Live meters will be added when the audio engine publishes channel peaks.
 
         g.setColour (juce::Colour (0xff9b9ba7));
         g.setFont (theme::font (9.0f));
@@ -161,14 +167,23 @@ public:
 
         auto knobs = r.removeFromTop (100);
         const auto knobWidth = knobs.getWidth() / 2;
-        trim.setBounds (knobs.removeFromLeft (knobWidth).reduced (4));
-        hpf.setBounds (knobs.removeFromLeft (knobWidth).reduced (4));
+        auto trimArea = knobs.removeFromLeft (knobWidth);
+        trimLabel.setBounds (trimArea.removeFromTop (12));
+        trim.setBounds (trimArea.reduced (4));
+        auto hpfArea = knobs.removeFromLeft (knobWidth);
+        hpfLabel.setBounds (hpfArea.removeFromTop (12));
+        hpf.setBounds (hpfArea.reduced (4));
 
         knobs = r.removeFromTop (100);
-        low.setBounds (knobs.removeFromLeft (knobWidth).reduced (4));
-        high.setBounds (knobs.removeFromLeft (knobWidth).reduced (4));
+        auto lowArea = knobs.removeFromLeft (knobWidth);
+        lowLabel.setBounds (lowArea.removeFromTop (12));
+        low.setBounds (lowArea.reduced (4));
+        auto highArea = knobs.removeFromLeft (knobWidth);
+        highLabel.setBounds (highArea.removeFromTop (12));
+        high.setBounds (highArea.reduced (4));
 
-        pan.setBounds (r.removeFromTop (24));
+        panLabel.setBounds (r.removeFromTop (12));
+        pan.setBounds (r.removeFromTop (22));
         fader.setBounds (r.removeFromTop (180).reduced (20, 4));
 
         auto buttons = r.removeFromTop (26);
@@ -256,6 +271,7 @@ private:
     bool updating = false;
 
     juce::Label nameLabel;
+    juce::Label trimLabel, hpfLabel, lowLabel, highLabel, panLabel;
     juce::ComboBox inputBox;
     juce::Slider trim, hpf, low, high, pan, fader;
     juce::TextButton mute, solo, removeButton;

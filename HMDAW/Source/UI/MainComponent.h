@@ -15,7 +15,6 @@
 #include "TrackArea.h"
 #include "StudioPage.h"
 #include "RoutingPage.h"
-#include "ArrangeKeyboardDock.h"
 #include "MixerPage.h"
 #include "TransportBar.h"
 #include "VirtualKeyboardWindow.h"
@@ -362,7 +361,6 @@ private:
     EditorPanel editorPanel;
     StudioPage studioPage;
     RoutingPage routingPage;
-    ArrangeKeyboardDock keyboardDock;
     MixerPage mixerPage;
 
     juce::StretchableLayoutManager layout;

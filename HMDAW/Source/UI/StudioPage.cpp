@@ -827,6 +827,8 @@ public:
         : owner (ownerToUse), nodeId (nodeIdToUse)
     {
         setOpaque (true);
+        setAlwaysOnTop (true);
+        setInterceptsMouseClicks (true, true);
         setSize (300, 330);
 
         addAndMakeVisible (title);
@@ -962,7 +964,7 @@ public:
                        juce::dontSendNotification);
 
         for (auto* slider : sliders)
-            if (slider->getProperties().contains ("field"))
+            if (slider != activeSlider && slider->getProperties().contains ("field"))
                 syncSlider (*slider);
 
         for (auto* combo : combos)
@@ -1013,6 +1015,7 @@ private:
     bool updating = false;
     bool dragging = false;
     juce::Point<int> dragStartWindow;
+    juce::Slider* activeSlider = nullptr;
 };
 
 studio::Id StudioInspector::targetForSource() const
@@ -1114,6 +1117,8 @@ void StudioInspector::addSlider (const juce::String& field, const char* label,
     slider->getProperties().set ("field", field);
     slider->getProperties().set ("label", label);
     slider->onValueChange = [this, slider] { applySlider (*slider); };
+    slider->onDragStart = [this, slider] { activeSlider = slider; };
+    slider->onDragEnd = [this] { activeSlider = nullptr; };
     slider->setInterceptsMouseClicks (true, true);
     addAndMakeVisible (slider);
     controls.push_back (slider);

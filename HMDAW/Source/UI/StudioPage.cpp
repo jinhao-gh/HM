@@ -89,7 +89,7 @@ juce::Path speakerCone (juce::Point<float> p, double angleDeg, double widthDeg, 
     const auto half = juce::degreesToRadians (juce::jlimit (10.0, 180.0, widthDeg * 0.5));
     path.addPieSegment (p.x - (float) radiusPx, p.y - (float) radiusPx,
                         (float) radiusPx * 2.0f, (float) radiusPx * 2.0f,
-                        (float) (a - half), (float) (a + half), 0.0f);
+                        (float) (-(a + half)), (float) (-(a - half)), 0.0f);
     return path;
 }
 
@@ -117,7 +117,7 @@ juce::Path micLobe (juce::Point<float> p, double angleDeg, studio::MicPattern pa
         gain = juce::jmax (0.0, gain);
         const auto r = radiusPx * gain;
         const auto x = p.x + (float) (std::cos (theta) * r);
-        const auto y = p.y + (float) (std::sin (theta) * r);
+        const auto y = p.y - (float) (std::sin (theta) * r);
 
         if (i == 0) path.startNewSubPath (x, y);
         else path.lineTo (x, y);

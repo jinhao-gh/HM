@@ -1575,6 +1575,12 @@ void StudioPage::refresh()
     connectButton.setButtonText (connectMode ? NI_TXT ("连接：开") : NI_TXT ("连接"));
 }
 
+void StudioPage::visibilityChanged()
+{
+    for (auto* inspector : inspectors)
+        inspector->setVisible (isVisible());
+}
+
 void StudioPage::paint (juce::Graphics& g)
 {
     g.fillAll (theme::panelBackground);
@@ -1863,9 +1869,22 @@ void StudioPage::openInspector (studio::Id nodeId)
         }
 
     auto* inspector = inspectors.add (new StudioInspector (*this, nodeId));
-    addAndMakeVisible (inspector);
-    inspector->setTopLeftPosition (24 + inspectors.size() * 18,
-                                   80 + inspectors.size() * 18);
+
+    if (auto* host = getParentComponent())
+    {
+        host->addAndMakeVisible (inspector);
+        const auto at = host->getLocalPoint (this,
+                                             juce::Point<int> (24 + inspectors.size() * 18,
+                                                               80 + inspectors.size() * 18));
+        inspector->setTopLeftPosition (at);
+    }
+    else
+    {
+        addAndMakeVisible (inspector);
+        inspector->setTopLeftPosition (24 + inspectors.size() * 18,
+                                       80 + inspectors.size() * 18);
+    }
+
     inspector->toFront (true);
     if (onNodeSelected)
         onNodeSelected (nodeId);

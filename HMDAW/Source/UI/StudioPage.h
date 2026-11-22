@@ -27,6 +27,7 @@ public:
     void paint (juce::Graphics& g) override;
     void resized() override;
     void refresh();
+    void visibilityChanged() override;
 
     void addSpeaker (int units);
     void addMicrophone();

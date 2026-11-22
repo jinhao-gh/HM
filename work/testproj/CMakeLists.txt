@@ -36,6 +36,7 @@ target_sources(HMDAWTests PRIVATE
     "${HMDAW_ROOT}/Source/Tests/SerializationTests.cpp"
     "${HMDAW_ROOT}/Source/Tests/InstrumentTests.cpp"
     "${HMDAW_ROOT}/Source/Tests/MinimoogTests.cpp"
+    "${HMDAW_ROOT}/Source/Tests/GmTests.cpp"
     "${HMDAW_ROOT}/Source/Tests/PlaybackTests.cpp"
     "${HMDAW_ROOT}/Source/Tests/PresetTests.cpp"
     "${HMDAW_ROOT}/Source/Tests/PluginTests.cpp"

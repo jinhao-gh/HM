@@ -8,6 +8,7 @@
 #include "DrumEditor.h"
 #include "GranularEditor.h"
 #include "HybridEditor.h"
+#include "GmEditor.h"
 
 #include "../Core/PresetStore.h"
 
@@ -47,6 +48,7 @@ public:
     DrumEditor& getDrumEditor() noexcept { return *drumEditor; }
     GranularEditor& getGranularEditor() noexcept { return *granularEditor; }
     HybridEditor& getHybridEditor() noexcept { return *hybridEditor; }
+    GmEditor& getGmEditor() noexcept { return *gmEditor; }
 
     /** The size the panel inside is laid out at: the design size, or the window
         when the window is bigger (self test). */
@@ -70,6 +72,7 @@ public:
                : kind == TrackKind::granular ? GranularEditor::kDesignHeightWithCloud
                : kind == TrackKind::hybrid ? HybridEditor::kDesignHeight
                : kind == TrackKind::minimoog ? MinimoogEditor::kDesignHeight
+               : kind == TrackKind::gm ? GmEditor::kDesignHeight
                                              : kDesignHeight;
     }
 
@@ -77,6 +80,7 @@ public:
     {
         return kind == TrackKind::hybrid ? HybridEditor::kDesignWidth
                : kind == TrackKind::minimoog ? MinimoogEditor::kDesignWidth
+               : kind == TrackKind::gm ? GmEditor::kDesignWidth
                                              : kDesignWidth;
     }
 
@@ -99,6 +103,7 @@ private:
         DrumEditor* drums = nullptr;
         GranularEditor* granular = nullptr;
         HybridEditor* hybrid = nullptr;
+        GmEditor* gm = nullptr;
     };
 
     SynthEditor* editor = nullptr;
@@ -109,6 +114,7 @@ private:
     DrumEditor* drumEditor = nullptr;
     GranularEditor* granularEditor = nullptr;
     HybridEditor* hybridEditor = nullptr;
+    GmEditor* gmEditor = nullptr;
     Content* content = nullptr;
     juce::Viewport viewport;
     /** The component whose screen the window opens on (the main window). */

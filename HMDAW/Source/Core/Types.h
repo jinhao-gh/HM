@@ -1155,7 +1155,9 @@ enum class TrackKind
     hybrid,
     /** Minimoog Model D style monophonic/polyphonic analogue instrument. Appended
         last so the serialised values of the kinds above never move. */
-    minimoog
+    minimoog,
+    /** General MIDI sample instrument backed by a SoundFont. */
+    gm
 };
 
 /** The Chinese name of a track kind, used for the default track name and the
@@ -1174,10 +1176,25 @@ inline juce::String trackKindLabel (TrackKind kind)
         case TrackKind::granular:    return NI_TXT ("粒子合成器");
         case TrackKind::hybrid:      return NI_TXT ("混合合成器");
         case TrackKind::minimoog:    return NI_TXT ("迷你穆格");
+        case TrackKind::gm:          return NI_TXT ("GM 音色");
     }
 
     return NI_TXT ("FM合成器");
 }
+
+/** A General MIDI sound: one program per track, optionally the GM drum kit. */
+struct GmParams
+{
+    juce::String soundFontPath;   // empty = the bundled GeneralUser GS
+    int   program = 0;            // 0..127
+    bool  drums = false;
+    float volume = 0.8f;
+    float pan = 0.0f;
+    int   polyphony = 64;         // 1..64
+    int   pitchBendRange = 2;     // 0..12 semitones
+
+    bool operator== (const GmParams&) const = default;
+};
 
 struct InstrumentTrack
 {
@@ -1201,6 +1218,7 @@ struct InstrumentTrack
     GranularParams    granular;
     HybridParams      hybrid;
     MinimoogParams    minimoog;
+    GmParams          gm;
 
     /** The insert chain: instrument -> these, in order -> track fader. */
     std::vector<EffectSlot> effects;

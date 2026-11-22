@@ -92,6 +92,10 @@ TrackArea::TrackArea (ProjectDocument& documentToUse, AppState& appStateToUse, A
             {
                 addTrack (TrackKind::minimoog);
             }
+            else if (result == 11)
+            {
+                addTrack (TrackKind::gm);
+            }
         });
     };
 
@@ -374,6 +378,7 @@ juce::PopupMenu TrackArea::buildAddMenu() const
     // menu instead of below every legacy kind.
     menu.addItem (9, NI_TXT ("混合合成器"), true);
     menu.addItem (10, NI_TXT ("迷你穆格"), true);
+    menu.addItem (11, NI_TXT ("GM 音色"), true);
     menu.addItem (1, NI_TXT ("FM合成器"), true);
     menu.addItem (4, NI_TXT ("鼓机"), true);
     menu.addItem (5, NI_TXT ("采样器"), true);

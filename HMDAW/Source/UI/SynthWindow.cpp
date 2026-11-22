@@ -17,6 +17,7 @@ SynthWindow::Content::Content (ProjectDocument& document, AudioEngine& audioEngi
     drums = new DrumEditor (document, audioEngine, presets);
     granular = new GranularEditor (document, audioEngine, presets);
     hybrid = new HybridEditor (document, audioEngine, presets, appState);
+    gm = new GmEditor (document, audioEngine, presets);
 
     addAndMakeVisible (fm);
     addChildComponent (sampler);
@@ -26,6 +27,7 @@ SynthWindow::Content::Content (ProjectDocument& document, AudioEngine& audioEngi
     addChildComponent (drums);
     addChildComponent (granular);
     addChildComponent (hybrid);
+    addChildComponent (gm);
 }
 
 void SynthWindow::Content::resized()
@@ -38,6 +40,7 @@ void SynthWindow::Content::resized()
     drums->setBounds (getLocalBounds());
     granular->setBounds (getLocalBounds());
     hybrid->setBounds (getLocalBounds());
+    gm->setBounds (getLocalBounds());
 }
 
 void SynthWindow::Content::showFor (TrackKind kind)
@@ -56,6 +59,7 @@ void SynthWindow::Content::showFor (TrackKind kind)
         case TrackKind::drums:       page = drums; break;
         case TrackKind::granular:    page = granular; break;
         case TrackKind::hybrid:      page = hybrid; break;
+        case TrackKind::gm:          page = gm; break;
         case TrackKind::audio:
         case TrackKind::vst:         break;   // no instrument page
     }
@@ -67,7 +71,8 @@ void SynthWindow::Content::showFor (TrackKind kind)
                               static_cast<juce::Component*> (wavetable),
                               static_cast<juce::Component*> (drums),
                               static_cast<juce::Component*> (granular),
-                              static_cast<juce::Component*> (hybrid) })
+                              static_cast<juce::Component*> (hybrid),
+                              static_cast<juce::Component*> (gm) })
         pageEditor->setVisible (pageEditor == page);
 }
 
@@ -91,6 +96,7 @@ SynthWindow::SynthWindow (ProjectDocument& document, AudioEngine& audioEngine,
     drumEditor = content->drums;
     granularEditor = content->granular;
     hybridEditor = content->hybrid;
+    gmEditor = content->gm;
 
     // The panel is laid out at its design size and the window scrolls around it
     // when the screen is smaller than that. Without this the bottom of the editor
@@ -115,6 +121,7 @@ SynthWindow::~SynthWindow()
     drumEditor = nullptr;
     granularEditor = nullptr;
     hybridEditor = nullptr;
+    gmEditor = nullptr;
 
     // The viewport does not own the panel, so the window deletes it - after the
     // editor pointers above have been dropped, so nothing is left dangling.
@@ -171,6 +178,9 @@ void SynthWindow::setShowDialogs (bool shouldShow)
 
     if (granularEditor != nullptr)
         granularEditor->setShowDialogs (shouldShow);
+
+    if (gmEditor != nullptr)
+        gmEditor->setShowDialogs (shouldShow);
 }
 
 void SynthWindow::showForTrack (juce::int64 trackId, const juce::String& trackName, TrackKind kind)
@@ -203,6 +213,7 @@ void SynthWindow::showForTrack (juce::int64 trackId, const juce::String& trackNa
         case TrackKind::drums:       drumEditor->setTrack (trackId); break;
         case TrackKind::granular:    granularEditor->setTrack (trackId); break;
         case TrackKind::hybrid:      hybridEditor->setTrack (trackId); break;
+        case TrackKind::gm:          gmEditor->setTrack (trackId); break;
         case TrackKind::synth:
         case TrackKind::audio:
         case TrackKind::vst:

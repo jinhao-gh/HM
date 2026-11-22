@@ -1515,9 +1515,9 @@ public:
                                         TrackKind::subtractive, TrackKind::wavetable,
                                         TrackKind::drums, TrackKind::vst,
                                         TrackKind::granular, TrackKind::hybrid,
-                                        TrackKind::minimoog };
+                                        TrackKind::minimoog, TrackKind::gm };
 
-            for (int value = 0; value <= (int) TrackKind::minimoog; ++value)
+            for (int value = 0; value <= (int) TrackKind::gm; ++value)
             {
                 auto project = makeProjectWithSynthTrack();
                 auto parsed = juce::JSON::parse (projectToJson (project));

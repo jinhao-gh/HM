@@ -34,6 +34,8 @@ juce::var subtractiveParamsToVar (const SubtractiveParams& params);
 SubtractiveParams subtractiveParamsFromVar (const juce::var& value);
 juce::var minimoogParamsToVar (const MinimoogParams& params);
 MinimoogParams minimoogParamsFromVar (const juce::var& value);
+juce::var gmParamsToVar (const GmParams& params);
+GmParams gmParamsFromVar (const juce::var& value);
 juce::var wavetableParamsToVar (const WavetableParams& params);
 WavetableParams wavetableParamsFromVar (const juce::var& value);
 juce::var customWavetableToVar (const CustomWavetable& table);

@@ -24,6 +24,8 @@ set "APPEXE=%WORK%\app-build5\HMDAW_artefacts\Release\HM.exe"
 set "TESTPLUGIN=%WORK%\app-build5\HMDAWTestInstrument_artefacts\Release\VST3\HMTestInstrument.vst3"
 set "TESTEFFECT=%WORK%\app-build5\HMDAWTestEffect_artefacts\Release\VST3\HMTestEffect.vst3"
 set "SELFDIR=%WORK%\release-selftest"
+set "GM_SF2=%ROOT%\HMDAW\Resources\GeneralUserGS.sf2"
+set "GM_LIC=%ROOT%\HMDAW\Resources\GeneralUserGS-LICENSE.txt"
 set "TESTLOG=%WORK%\release-tests.log"
 
 rem Restricted sandboxes (Codex/CI) only allow writes inside the workspace, and
@@ -87,6 +89,8 @@ if errorlevel 1 goto :selffailed
 echo.
 echo [5/5] syncing the delivery folders and rebuilding the zip ...
 copy /y "%APPEXE%" "%OUTDEV%\HM.exe" >nul
+copy /y "%GM_SF2%" "%OUTDEV%\GeneralUserGS.sf2" >nul
+copy /y "%GM_LIC%" "%OUTDEV%\GeneralUserGS-LICENSE.txt" >nul
 if errorlevel 1 goto :locked
 rem The self test's snapshots are the delivery's snapshots: clear the old ones first,
 rem so a picture of a feature that has gone cannot stay in the folder for ever.
@@ -94,6 +98,8 @@ del /q "%OUTDEV%\screenshots\*.png" >nul 2>&1
 for %%f in ("%SELFDIR%\*.png") do copy /y "%%f" "%OUTDEV%\screenshots\" >nul
 copy /y "%SELFDIR%\selftest.log" "%OUTDEV%\screenshots\selftest.log" >nul
 copy /y "%APPEXE%" "%OUTPKG%\HM.exe" >nul
+copy /y "%GM_SF2%" "%OUTPKG%\GeneralUserGS.sf2" >nul
+copy /y "%GM_LIC%" "%OUTPKG%\GeneralUserGS-LICENSE.txt" >nul
 if errorlevel 1 goto :locked
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path '%OUTPKG%' -DestinationPath '%ZIP%' -Force"
 if errorlevel 1 goto :fail

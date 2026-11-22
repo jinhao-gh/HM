@@ -24,11 +24,21 @@ HM — third-party notices
    official logos of those companies.
 
 4. Audio assets
-   No third-party sample libraries are included in this repository. The
-   application synthesises its built-in sounds; user-imported audio remains the
-   responsibility of the user.
+   The GM instrument ships with GeneralUser GS 2.0.3
+   (HMDAW/Resources/GeneralUserGS.sf2), Copyright S. Christian Collins,
+   under the GeneralUser GS License v2.0; the full text is in
+   HMDAW/Resources/GeneralUserGS-LICENSE.txt. The licence allows use in music
+   creation and in software projects, and notes that some contained samples
+   came from freely available Internet banks whose provenance is not fully
+   documented. No other third-party sample libraries are included; user-imported
+   audio remains the responsibility of the user.
 
-5. AI assistance
+5. TinySoundFont
+   HMDAW/external/tsf/tsf.h is TinySoundFont 0.9, Copyright (C) 2017-2025
+   Bernhard Schelling, based on SFZero by Steve Folta, under the MIT licence;
+   see HMDAW/external/tsf/LICENSE.
+
+6. AI assistance
    Parts of the code were written with AI coding assistants and reviewed by the
    project author. AI output is not guaranteed to be free of third-party code;
    re-check licences before redistributing modified versions.

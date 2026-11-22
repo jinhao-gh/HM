@@ -23,6 +23,8 @@ set (HMDAW_SHARED_SOURCES
     "${HMDAW_ROOT}/Source/Audio/SynthEngine.cpp"
     "${HMDAW_ROOT}/Source/Audio/SubtractiveSynth.cpp"
     "${HMDAW_ROOT}/Source/Audio/MinimoogSynth.cpp"
+    "${HMDAW_ROOT}/Source/Audio/GmSoundFont.cpp"
+    "${HMDAW_ROOT}/Source/Audio/GmSynth.cpp"
     "${HMDAW_ROOT}/Source/Audio/WavetableSynth.cpp"
     "${HMDAW_ROOT}/Source/Audio/DrumSynth.cpp"
     "${HMDAW_ROOT}/Source/Audio/SamplePlayer.cpp"

@@ -962,6 +962,32 @@ MinimoogParams minimoogParamsFromVar (const juce::var& v)
 }
 
 //==============================================================================
+juce::var gmParamsToVar (const GmParams& s)
+{
+    auto* o = new juce::DynamicObject();
+    o->setProperty ("soundFontPath", s.soundFontPath);
+    o->setProperty ("program", s.program);
+    o->setProperty ("drums", s.drums);
+    o->setProperty ("volume", s.volume);
+    o->setProperty ("pan", s.pan);
+    o->setProperty ("polyphony", s.polyphony);
+    o->setProperty ("pitchBendRange", s.pitchBendRange);
+    return juce::var (o);
+}
+
+GmParams gmParamsFromVar (const juce::var& v)
+{
+    GmParams s;
+    s.soundFontPath = readString (v, "soundFontPath", {});
+    s.program = juce::jlimit (0, 127, readInt (v, "program", 0));
+    s.drums = readBool (v, "drums", false);
+    s.volume = (float) juce::jlimit (0.0, 1.0, readDouble (v, "volume", 0.8));
+    s.pan = (float) juce::jlimit (-1.0, 1.0, readDouble (v, "pan", 0.0));
+    s.polyphony = juce::jlimit (1, 64, readInt (v, "polyphony", 64));
+    s.pitchBendRange = juce::jlimit (0, 12, readInt (v, "pitchBendRange", 2));
+    return s;
+}
+
 juce::var wavetableParamsToVar (const WavetableParams& s)
 {
     auto* o = new juce::DynamicObject();

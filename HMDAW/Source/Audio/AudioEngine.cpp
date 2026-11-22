@@ -62,6 +62,7 @@ void PlaybackEngine::prepare (double newSampleRate, int maxBlockSize)
     samplePlayers.resize ((size_t) kMaxTracks);
     subtractiveSynths.resize ((size_t) kMaxTracks);
     minimoogSynths.resize ((size_t) kMaxTracks);
+    gmSynths.resize ((size_t) kMaxTracks);
     wavetableSynths.resize ((size_t) kMaxTracks);
     drumKits.resize ((size_t) kMaxTracks);
     granularSynths.resize ((size_t) kMaxTracks);
@@ -79,6 +80,9 @@ void PlaybackEngine::prepare (double newSampleRate, int maxBlockSize)
         s.prepare (sampleRate);
 
     for (auto& s : minimoogSynths)
+        s.prepare (sampleRate);
+
+    for (auto& s : gmSynths)
         s.prepare (sampleRate);
 
     for (auto& s : wavetableSynths)
@@ -102,6 +106,7 @@ void PlaybackEngine::prepare (double newSampleRate, int maxBlockSize)
     previewSampler.prepare (sampleRate);
     previewSubtractive.prepare (sampleRate);
     previewMinimoog.prepare (sampleRate);
+    previewGm.prepare (sampleRate);
     previewWavetable.prepare (sampleRate);
     previewDrums.prepare (sampleRate);
     previewGranular.prepare (sampleRate);
@@ -357,6 +362,13 @@ void PlaybackEngine::applyLiveEvent (const RenderSchedule& target, const LiveEve
                 minimoogSynths[index].noteOff (event.noteId);
             break;
 
+        case TrackKind::gm:
+            if (isNoteOn)
+                gmSynths[index].noteOn (event.noteId, event.frequency, event.velocity);
+            else
+                gmSynths[index].noteOff (event.noteId);
+            break;
+
         case TrackKind::wavetable:
             if (isNoteOn)
                 wavetableSynths[index].noteOn (event.noteId, event.frequency, event.velocity);
@@ -423,6 +435,9 @@ void PlaybackEngine::allNotesOff()
     for (auto& s : hybridSynths)
         s.allNotesOff (true);
 
+    for (auto& s : gmSynths)
+        s.allNotesOff();
+
     for (auto& h : hostedInstruments)
         if (h != nullptr)
             h->allNotesOff();
@@ -436,6 +451,7 @@ void PlaybackEngine::allNotesOff()
     previewSampler.allNotesOff (true);
     previewSubtractive.allNotesOff (true);
     previewMinimoog.allNotesOff (true);
+    previewGm.allNotesOff();
     previewWavetable.allNotesOff (true);
     previewDrums.allNotesOff (true);
     previewGranular.allNotesOff (true);
@@ -447,11 +463,12 @@ int PlaybackEngine::getActiveVoiceCount() const noexcept
     const auto preview = previewSynth.activeVoiceCount() + previewSampler.activeVoiceCount()
                              + previewSubtractive.activeVoiceCount()
                              + previewMinimoog.activeVoiceCount()
+                             + previewGm.getActiveVoiceCount()
                              + previewWavetable.activeVoiceCount()
                              + previewDrums.activeVoiceCount()
                              + previewGranular.activeVoiceCount();
     int count = preview;
-    int fm = 0, sampler = 0, sub = 0, mini = 0, wave = 0, drums = 0, gran = 0, hyb = 0;
+    int fm = 0, sampler = 0, sub = 0, mini = 0, wave = 0, drums = 0, gran = 0, hyb = 0, gm = 0;
 
     for (const auto& s : synths)
         fm += s.activeVoiceCount();
@@ -465,6 +482,9 @@ int PlaybackEngine::getActiveVoiceCount() const noexcept
     for (const auto& s : minimoogSynths)
         mini += s.activeVoiceCount();
 
+    for (const auto& s : gmSynths)
+        gm += s.getActiveVoiceCount();
+
     for (const auto& s : wavetableSynths)
         wave += s.activeVoiceCount();
 
@@ -477,7 +497,7 @@ int PlaybackEngine::getActiveVoiceCount() const noexcept
     for (const auto& s : hybridSynths)
         hyb += s.activeVoiceCount();
 
-    count += fm + sampler + sub + mini + wave + drums + gran + hyb;
+    count += fm + sampler + sub + mini + wave + drums + gran + hyb + gm;
 
     return count;
 }
@@ -574,6 +594,39 @@ void PlaybackEngine::updatePreviewMinimoogParams (const MinimoogParams& params)
     const juce::SpinLock::ScopedLockType lock (previewLock);
     previewMinimoogParams = params;
     previewKind = PreviewKind::minimoog;
+}
+
+
+void PlaybackEngine::setGmSoundFont (std::shared_ptr<const GmSoundFont> font)
+{
+    gmFont = std::move (font);
+
+    for (auto& synth : gmSynths)
+        synth.setSoundFont (gmFont);
+
+    previewGm.setSoundFont (gmFont);
+}
+
+void PlaybackEngine::triggerPreviewGmNote (const GmParams& params, double frequencyHz,
+                                            float velocity)
+{
+    {
+        const juce::SpinLock::ScopedLockType lock (previewLock);
+        previewGmParams = params;
+        previewKind = PreviewKind::gm;
+        previewFrequency = music::VerticalAxis::clampHz (frequencyHz);
+        previewVelocity = juce::jlimit (0.0f, 127.0f, velocity);
+    }
+
+    previewGate.store (true, std::memory_order_relaxed);
+    previewSerial.fetch_add (1, std::memory_order_relaxed);
+}
+
+void PlaybackEngine::updatePreviewGmParams (const GmParams& params)
+{
+    const juce::SpinLock::ScopedLockType lock (previewLock);
+    previewGmParams = params;
+    previewKind = PreviewKind::gm;
 }
 
 void PlaybackEngine::triggerPreviewWaveNote (const WavetableParams& params,
@@ -747,6 +800,10 @@ void PlaybackEngine::matchTracks (const std::shared_ptr<const RenderSchedule>& t
         if (! (minimoogSynths[(size_t) i].getParams() == info.minimoog))
             minimoogSynths[(size_t) i].setParams (info.minimoog);
 
+        if (info.kind == TrackKind::gm)
+            if (! (gmSynths[(size_t) i].getParams() == info.gm))
+                gmSynths[(size_t) i].setParams (info.gm);
+
         if (! (wavetableSynths[(size_t) i].getParams() == info.wavetable))
             wavetableSynths[(size_t) i].setParams (info.wavetable);
 
@@ -902,6 +959,7 @@ void PlaybackEngine::triggerEvent (int i, TrackKind kind, const SynthEvent& even
             case TrackKind::sampler:     samplePlayers[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
             case TrackKind::subtractive: subtractiveSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
             case TrackKind::minimoog:    minimoogSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
+            case TrackKind::gm:          gmSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
             case TrackKind::wavetable:   wavetableSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
             case TrackKind::granular:    granularSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
             case TrackKind::hybrid:      hybridSynths[(size_t) i].setNoteFrequency (event.noteId, event.frequency); break;
@@ -967,6 +1025,14 @@ void PlaybackEngine::triggerEvent (int i, TrackKind kind, const SynthEvent& even
                                                    event.velocity);
             else
                 minimoogSynths[(size_t) i].noteOff (event.noteId);
+            break;
+
+        case TrackKind::gm:
+            if (event.isNoteOn)
+                gmSynths[(size_t) i].noteOn (event.noteId, event.frequency,
+                                             event.velocity);
+            else
+                gmSynths[(size_t) i].noteOff (event.noteId);
             break;
 
         case TrackKind::wavetable:
@@ -1126,6 +1192,9 @@ void PlaybackEngine::releaseAllVoices (bool immediately)
 
     for (auto& s : minimoogSynths)
         s.allNotesOff (immediately);
+
+    for (auto& s : gmSynths)
+        s.allNotesOff();
 
     for (auto& s : wavetableSynths)
         s.allNotesOff (immediately);
@@ -1321,7 +1390,7 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
         // Which built-in instrument this track kind renders. A switch with no
         // default: a newly added TrackKind makes the compiler point here instead of
         // silently rendering silence (or the FM synth) for it.
-        enum class BuiltIn { none, fm, sampler, subtractive, minimoog, wavetable, drums, granular, hybrid };
+        enum class BuiltIn { none, fm, sampler, subtractive, minimoog, wavetable, drums, granular, hybrid, gm };
         auto builtIn = BuiltIn::none;
 
         switch (info.kind)
@@ -1334,6 +1403,7 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
             case TrackKind::granular:    builtIn = BuiltIn::granular; break;
             case TrackKind::hybrid:      builtIn = BuiltIn::hybrid; break;
             case TrackKind::minimoog:    builtIn = BuiltIn::minimoog; break;
+            case TrackKind::gm:          builtIn = BuiltIn::gm; break;
             case TrackKind::audio:       break;   // mixed in renderAudioTracks
             case TrackKind::vst:         break;   // rendered by info.instrument
         }
@@ -1342,6 +1412,7 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
                                 ? &subtractiveSynths[(size_t) i] : nullptr;
         auto* minimoog = builtIn == BuiltIn::minimoog
                              ? &minimoogSynths[(size_t) i] : nullptr;
+        auto* gm = builtIn == BuiltIn::gm ? &gmSynths[(size_t) i] : nullptr;
         auto* sampler = builtIn == BuiltIn::sampler ? &samplePlayers[(size_t) i] : nullptr;
         auto* wavetable = builtIn == BuiltIn::wavetable
                               ? &wavetableSynths[(size_t) i] : nullptr;
@@ -1361,6 +1432,7 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
                                 : drums != nullptr ? drums->isActive()
                                 : granular != nullptr ? granular->isActive()
                                 : hybrid != nullptr ? hybrid->isActive()
+                                 : gm != nullptr ? gm->isActive()
                                  : fm != nullptr ? fm->isActive()
                                                  : false;
 
@@ -1393,6 +1465,8 @@ void PlaybackEngine::renderVoices (const RenderSchedule& target, int offset, int
             subtractive->renderAdding (trackBuffer, 0, numSamples, 1.0f, 1.0f);
         else if (minimoog != nullptr)
             minimoog->renderAdding (trackBuffer, 0, numSamples, 1.0f, 1.0f);
+        else if (gm != nullptr)
+            gm->renderAdding (trackBuffer, 0, numSamples);
         else if (drums != nullptr)
             drums->renderAdding (trackBuffer, 0, numSamples, 1.0f, 1.0f);
         else if (granular != nullptr)
@@ -1810,6 +1884,7 @@ void PlaybackEngine::applyPreview()
     SamplerParams samplerParams;
     SubtractiveParams subParams;
     MinimoogParams minimoogParams;
+    GmParams gmParams;
     WavetableParams waveParams;
     std::array<std::shared_ptr<const wavetable::Wavetable>, 2> waveTables;
     DrumKitParams drumParams;
@@ -1825,6 +1900,7 @@ void PlaybackEngine::applyPreview()
         samplerParams = previewSamplerParams;
         subParams = previewSubParams;
         minimoogParams = previewMinimoogParams;
+        gmParams = previewGmParams;
         waveParams = previewWaveParams;
         waveTables = previewWaveTables;
         drumParams = previewDrumParams;
@@ -1848,6 +1924,9 @@ void PlaybackEngine::applyPreview()
 
     if (! (previewMinimoog.getParams() == minimoogParams))
         previewMinimoog.setParams (minimoogParams);
+
+    if (! (previewGm.getParams() == gmParams))
+        previewGm.setParams (gmParams);
 
     if (! (previewWavetable.getParams() == waveParams))
         previewWavetable.setParams (waveParams);
@@ -1880,6 +1959,10 @@ void PlaybackEngine::applyPreview()
                 previewMinimoog.noteOn (kPreviewNoteId, (float) frequency, velocity);
                 break;
 
+            case PreviewKind::gm:
+                previewGm.noteOn (kPreviewNoteId, frequency, velocity);
+                break;
+
             case PreviewKind::wavetable:
                 previewWavetable.noteOn (kPreviewNoteId, (float) frequency, velocity);
                 break;
@@ -1910,6 +1993,7 @@ void PlaybackEngine::applyPreview()
             case PreviewKind::sampler:     previewSampler.noteOff (kPreviewNoteId); break;
             case PreviewKind::subtractive: previewSubtractive.noteOff (kPreviewNoteId); break;
             case PreviewKind::minimoog:    previewMinimoog.noteOff (kPreviewNoteId); break;
+            case PreviewKind::gm:          previewGm.noteOff (kPreviewNoteId); break;
             case PreviewKind::wavetable:   previewWavetable.noteOff (kPreviewNoteId); break;
             case PreviewKind::drums:       previewDrums.noteOff (kPreviewNoteId); break;
             case PreviewKind::granular:    previewGranular.noteOff (kPreviewNoteId); break;
@@ -1935,6 +2019,9 @@ void PlaybackEngine::renderPreviewVoices (int numSamples)
     if (previewMinimoog.isActive())
         previewMinimoog.renderAdding (output, 0, numSamples, 1.0f, 1.0f);
 
+    if (previewGm.isActive())
+        previewGm.renderAdding (output, 0, numSamples);
+
     if (previewWavetable.isActive())
         previewWavetable.renderAdding (output, 0, numSamples, 1.0f, 1.0f);
 
@@ -1950,6 +2037,10 @@ AudioEngine::AudioEngine (ProjectDocument& documentToUse)
     : document (documentToUse)
 {
     playback.prepare (document.getProject().sampleRate, 1024);
+
+    juce::String gmError;
+    playback.setGmSoundFont (GmSoundFont::loadBundled (gmError));
+
     rebuildSchedule();
 }
 

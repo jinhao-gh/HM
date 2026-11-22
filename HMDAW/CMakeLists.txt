@@ -141,6 +141,8 @@ target_sources(HMDAW PRIVATE
     Source/UI/GranularEditor.cpp
     Source/UI/HybridEditor.h
     Source/UI/HybridEditor.cpp
+    Source/UI/GmEditor.h
+    Source/UI/GmEditor.cpp
     Source/UI/HybridOscillatorWindow.h
     Source/UI/HybridOscillatorWindow.cpp
     Source/UI/HybridModulationPanel.h
@@ -188,6 +190,7 @@ target_sources(HMDAW PRIVATE
     Source/Tests/SerializationTests.cpp
     Source/Tests/InstrumentTests.cpp
     Source/Tests/MinimoogTests.cpp
+    Source/Tests/GmTests.cpp
     Source/Tests/PlaybackTests.cpp
     Source/Tests/PresetTests.cpp
     Source/Tests/PluginTests.cpp
@@ -343,3 +346,13 @@ target_link_libraries(HMDAWTests
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)
+
+# The GM instrument reads the SoundFont beside the executable at runtime.
+add_custom_command(TARGET HMDAW POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/GeneralUserGS.sf2"
+            "$<TARGET_FILE_DIR:HMDAW>/GeneralUserGS.sf2"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/GeneralUserGS-LICENSE.txt"
+            "$<TARGET_FILE_DIR:HMDAW>/GeneralUserGS-LICENSE.txt"
+    COMMENT "Copying GeneralUser GS beside HM.exe")

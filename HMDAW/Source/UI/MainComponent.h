@@ -9,7 +9,6 @@
 #include "EditorPanel.h"
 #include "EffectsBar.h"
 #include "EffectsWindow.h"
-#include "MixerWindow.h"
 #include "MidiInputWindow.h"
 #include "TopToolbar.h"
 #include "TrackArea.h"
@@ -93,7 +92,6 @@ public:
     /** 效果 in a lane header: this track's insert chain, in its own window. */
     void openEffectsWindow (juce::int64 trackId);
     /** 混音台 (the top bar's button and F3). */
-    void openMixerWindow();
     void setWorkspace (AppState::Workspace workspace);
     AppState::Workspace getWorkspaceForTest() const noexcept { return appState.workspace; }
     StudioPage& getStudioPageForTest() noexcept { return studioPage; }
@@ -271,7 +269,6 @@ public:
     EffectsBar& getEffectsBar() noexcept { return effectsBar; }
     /** The effects window, once a lane header's 效果 button has opened it. */
     EffectsWindow* getEffectsWindowForTest() noexcept { return effectsWindow.get(); }
-    MixerWindow* getMixerWindowForTest() noexcept { return mixerWindow.get(); }
     /** The sound window / the plugin window, once something has opened them. */
     SynthWindow* getSynthWindowForTest() noexcept { return synthWindow.get(); }
     PluginWindow* getPluginWindowForTest() noexcept { return pluginWindow.get(); }
@@ -370,7 +367,6 @@ private:
     std::unique_ptr<SynthWindow> synthWindow;
     std::unique_ptr<PluginWindow> pluginWindow;
     std::unique_ptr<EffectsWindow> effectsWindow;
-    std::unique_ptr<MixerWindow> mixerWindow;
     std::unique_ptr<MidiInputWindow> midiInputWindow;
     std::unique_ptr<VirtualKeyboardWindow> virtualKeyboardWindow;
     std::unique_ptr<WavetableTableWindow> wavetableTableWindow;

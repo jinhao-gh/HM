@@ -167,8 +167,6 @@ target_sources(HMDAW PRIVATE
     Source/UI/EffectsBar.cpp
     Source/UI/EffectsWindow.h
     Source/UI/EffectsWindow.cpp
-    Source/UI/MixerWindow.h
-    Source/UI/MixerWindow.cpp
     Source/UI/MidiInputWindow.h
     Source/UI/MidiInputWindow.cpp
     Source/UI/ArpControls.h

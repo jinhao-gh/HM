@@ -3133,11 +3133,6 @@ void MainComponent::setWorkspace (AppState::Workspace workspace)
     resized();
 }
 
-void MainComponent::openMixerWindow()
-{
-    setWorkspace (AppState::Workspace::mixer);
-}
-
 void MainComponent::showClipRenameDialog (juce::int64 clipId)
 {
     const auto* clip = document.getProject().findClip (clipId);
